@@ -1,0 +1,55 @@
+body {
+  width: 300px;
+  padding: 15px;
+  font-family: Arial, sans-serif;
+}
+
+.container {
+  text-align: center;
+}
+
+h1 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.actions {
+  margin-bottom: 20px;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+.help-text {
+  font-size: 12px;
+  color: #666;
+  margin: 0;
+}
+
+.settings-link {
+  margin-top: 15px;
+}
+
+.settings-link a {
+  color: #1a73e8;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.settings-link a:hover {
+  text-decoration: underline;
+}

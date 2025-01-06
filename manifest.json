@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "AI Cover Generator",
+  "version": "1.0",
+  "description": "Generate article covers using DeepSeek AI",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "contextMenus",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://api.deepseek.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "images/icon16.png"
+  },
+  "icons": {
+    "16": "images/icon16.png"
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "js/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["js/content.js"],
+      "css": ["css/content.css"]
+    }
+  ]
+}
