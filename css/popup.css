@@ -5,13 +5,64 @@ body {
 }
 
 .container {
-  text-align: center;
+  text-align: left;
+}
+
+.header {
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.title h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
 }
 
 h1 {
   font-size: 18px;
   color: #333;
   margin-bottom: 20px;
+}
+
+.prompt-select {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.prompt-select label {
+  display: block;
+  margin-bottom: 8px;
+  color: #333;
+  font-size: 13px;
+}
+
+.prompt-select select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #333;
+  background-color: white;
+  cursor: pointer;
+}
+
+.prompt-select select:hover {
+  border-color: #999;
+}
+
+.prompt-select select:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
 }
 
 .actions {

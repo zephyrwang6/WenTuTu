@@ -17,14 +17,14 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // 处理来自popup或content script的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "generateCover") {
-    generateCover(request.text);
+    generateCover(request.text, request.systemPrompt);
   }
 });
 
 // 生成封面的主要函数
-async function generateCover(text) {
+async function generateCover(text, customPrompt) {
   try {
-    const settings = await chrome.storage.sync.get(['apiKey', 'fullArticlePrompt']);
+    const settings = await chrome.storage.sync.get(['apiKey']);
     if (!settings.apiKey) {
       throw new Error('请先在设置中配置API密钥');
     }
@@ -43,52 +43,71 @@ async function generateCover(text) {
       body: JSON.stringify({
         model: "deepseek-chat",
         messages: [
-          { role: "system", content: settings.fullArticlePrompt || "请为以下文章生成一个吸引人的封面图片描述。" },
+          { 
+            role: "system", 
+            content: customPrompt || "请为以下文章生成一个吸引人的封面图片描述。"
+          },
           { role: "user", content: text }
         ],
+        temperature: 0.7,
+        max_tokens: 2000,
         stream: true
       })
     });
 
-    if (!response.ok) throw new Error('API请求失败');
+    if (!response.ok) {
+      throw new Error('API请求失败');
+    }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let accumulatedResponse = '';
 
     while (true) {
-      const {done, value} = await reader.read();
+      const { value, done } = await reader.read();
       if (done) break;
 
       const chunk = decoder.decode(value);
       const lines = chunk.split('\n');
 
       for (const line of lines) {
-        if (!line.trim() || line.includes('[DONE]')) continue;
+        if (line.trim() === '') continue;
+        if (line.trim() === 'data: [DONE]') continue;
+
         try {
-          const json = JSON.parse(line.replace(/^data: /, ''));
-          if (json.choices[0].delta.content) {
+          const cleanedLine = line.replace(/^data: /, '');
+          const parsed = JSON.parse(cleanedLine);
+          
+          if (parsed.choices[0].delta.content) {
+            accumulatedResponse += parsed.choices[0].delta.content;
+            
+            // 发送增量更新
             chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-              chrome.tabs.sendMessage(tabs[0].id, {
-                action: "appendContent",
-                content: json.choices[0].delta.content
-              });
+              if (tabs[0]) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                  action: "appendContent",
+                  content: parsed.choices[0].delta.content
+                });
+              }
             });
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error('Error parsing line:', e);
+        }
       }
     }
 
-    // 通知生成完成
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, {action: "completeGeneration"});
+    // 发送完成消息
+    chrome.runtime.sendMessage({
+      action: "coverGenerated",
+      result: accumulatedResponse
     });
 
   } catch (error) {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, {
-        action: "error",
-        message: error.message
-      });
+    console.error('Error:', error);
+    chrome.runtime.sendMessage({
+      action: "error",
+      message: error.message
     });
   }
 }

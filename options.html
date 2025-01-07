@@ -2,39 +2,77 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>AI Cover Generator Settings</title>
+  <title>文图图插件设置</title>
   <link rel="stylesheet" type="text/css" href="css/options.css">
 </head>
 <body>
   <div class="container">
-    <h1>AI Cover Generator Settings</h1>
+    <div class="header">
+      <h1 data-i18n="title">AI Cover Generator Settings</h1>
+      <div class="language-selector">
+        <label data-i18n="language">Language:</label>
+        <select id="languageSelect">
+          <option value="en">English</option>
+          <option value="zh">中文</option>
+        </select>
+      </div>
+    </div>
     
     <div class="section">
-      <h2>DeepSeek API Configuration</h2>
+      <h2 data-i18n="apiSection.title">DeepSeek API Configuration</h2>
       <div class="form-group">
-        <label for="apiKey">API Key:</label>
-        <input type="password" id="apiKey" placeholder="Enter your DeepSeek API key">
-        <p class="help-text">Get your API key from <a href="https://platform.deepseek.com/" target="_blank">DeepSeek Platform</a></p>
+        <label for="apiKey" data-i18n="apiSection.keyLabel">API Key:</label>
+        <input type="password" id="apiKey" data-i18n-placeholder="apiSection.keyPlaceholder">
+        <p class="help-text">
+          <span data-i18n="apiSection.helpText">Get your API key from</span>
+          <a href="https://platform.deepseek.com/" target="_blank">DeepSeek Platform</a>
+        </p>
       </div>
     </div>
 
     <div class="section">
-      <h2>Prompt Settings</h2>
-      <div class="form-group">
-        <label for="fullArticlePrompt">Full Article Cover Prompt:</label>
-        <textarea id="fullArticlePrompt" rows="4"></textarea>
+      <h2 data-i18n="customPrompts.title">Custom Prompts</h2>
+      <p class="help-text" data-i18n="customPrompts.helpText">You can create up to 5 custom prompts. Each prompt will be available in the popup menu.</p>
+      
+      <div id="customPrompts">
+        <!-- Custom prompt templates will be dynamically added here -->
       </div>
-      <div class="form-group">
-        <label for="selectedTextPrompt">Selected Text Cover Prompt:</label>
-        <textarea id="selectedTextPrompt" rows="4"></textarea>
+
+      <div class="button-group">
+        <button id="addPrompt" class="secondary" data-i18n="customPrompts.addButton">Add Custom Prompt</button>
+        <button id="resetPrompts" class="secondary" data-i18n="customPrompts.resetButton">Reset All</button>
       </div>
     </div>
 
     <div class="button-group">
-      <button id="save">Save Settings</button>
-      <div id="status"></div>
+      <button id="save" data-i18n="save">Save Settings</button>
     </div>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Custom prompt template -->
+    <template id="promptTemplate">
+      <div class="custom-prompt">
+        <div class="prompt-header">
+          <div class="prompt-enable">
+            <input type="checkbox" class="prompt-enabled" id="enabled_{{id}}">
+            <label for="enabled_{{id}}" data-i18n="customPrompts.enable">Enable</label>
+          </div>
+          <button class="delete-prompt" title="Delete this prompt">×</button>
+        </div>
+        <div class="form-group">
+          <label for="name_{{id}}" data-i18n="customPrompts.nameLabel">Prompt Name:</label>
+          <input type="text" class="prompt-name" id="name_{{id}}" data-i18n-placeholder="customPrompts.namePlaceholder" maxlength="20">
+        </div>
+        <div class="form-group">
+          <label for="content_{{id}}" data-i18n="customPrompts.contentLabel">Prompt Content:</label>
+          <textarea class="prompt-content" id="content_{{id}}" rows="6" data-i18n-placeholder="customPrompts.contentPlaceholder"></textarea>
+        </div>
+      </div>
+    </template>
   </div>
+  <script src="js/i18n.js"></script>
   <script src="js/options.js"></script>
 </body>
 </html>

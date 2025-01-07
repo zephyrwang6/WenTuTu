@@ -2,16 +2,29 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>AI Cover Generator</title>
+  <title>文图图</title>
   <link rel="stylesheet" type="text/css" href="css/popup.css">
 </head>
 <body>
   <div class="container">
-    <h1>AI Cover Generator</h1>
+    <div class="header">
+      <div class="title">
+        <h1>文图图</h1>
+        <div class="subtitle">Text To SVG</div>
+      </div>
+    </div>
     
+    <div class="prompt-select">
+      <label for="promptType">选择封面类型：</label>
+      <select id="promptType">
+        <option value="xiaohongshu">小红书封面</option>
+        <option value="wordcloud">词云封面</option>
+        <option value="textlogic">文本逻辑图</option>
+      </select>
+    </div>
+
     <div class="actions">
-      <button id="generateFullCover">为整篇文章生成封面</button>
-      <p class="help-text">点击将为当前页面生成封面</p>
+      <button id="generateFullCover">为当前页面内容生成封面</button>
     </div>
 
     <div class="settings-link">
