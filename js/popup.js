@@ -102,9 +102,8 @@ document.addEventListener('DOMContentLoaded', function() {
     ;; 5. 提取5-8个核心要点，以圆角矩形列表形式呈现
     ;; 6. 选择2-3个与内容相关的emoji作为视觉元素，不易过大
     ;; 7. 根据内容主题选择合适的背景渐变色，和主题高度相关
-    ;; 8. 添加与主题相关的装饰元素
-    ;; 9. 生成3个相关标签，增加曝光度
-    ;; 10. No other comments!!
+    ;; 8. 生成3个相关标签，增加曝光度
+    ;; 9. No other comments!!
                 `,
                 
  

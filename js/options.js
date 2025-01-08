@@ -49,20 +49,14 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // 更新语言
+  // 更新页面语言
   function updateLanguage() {
-    const elements = document.querySelectorAll('[data-i18n]');
-    elements.forEach(element => {
+    document.querySelectorAll('[data-i18n]').forEach(element => {
       const key = element.getAttribute('data-i18n');
-      const text = getNestedValue(i18n[currentLang], key);
-      if (text) element.textContent = text;
-    });
-
-    const placeholders = document.querySelectorAll('[data-i18n-placeholder]');
-    placeholders.forEach(element => {
-      const key = element.getAttribute('data-i18n-placeholder');
-      const text = getNestedValue(i18n[currentLang], key);
-      if (text) element.placeholder = text;
+      // 直接使用全局的 i18n 对象
+      if (window.i18n && window.i18n[currentLang] && window.i18n[currentLang][key]) {
+        element.textContent = window.i18n[currentLang][key];
+      }
     });
   }
 
@@ -232,11 +226,12 @@ document.addEventListener('DOMContentLoaded', function() {
   resetPromptsButton.addEventListener('click', resetPrompts);
   saveButton.addEventListener('click', saveSettings);
   
-  // 语言切换
-  languageSelect.addEventListener('change', function() {
-    currentLang = this.value;
-    chrome.storage.sync.set({ language: currentLang });
-    updateLanguage();
+  // 语言切换事件监听
+  languageSelect.addEventListener('change', function(e) {
+    currentLang = e.target.value;
+    chrome.storage.sync.set({ language: currentLang }, function() {
+      updateLanguage();
+    });
   });
 
   // 初始化

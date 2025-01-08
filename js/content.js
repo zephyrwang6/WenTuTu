@@ -23,11 +23,11 @@ function scrollToBottom(element) {
 }
 
 function showSvgPreview(svgContent) {
-  if (document.querySelector('.svg-preview')) {
-    document.querySelector('.svg-preview').remove();
+  if (svgPreviewDiv) {
+    svgPreviewDiv.remove();
   }
 
-  const svgPreviewDiv = document.createElement('div');
+  svgPreviewDiv = document.createElement('div');
   svgPreviewDiv.className = 'svg-preview';
   svgPreviewDiv.innerHTML = `
     <div class="header">
@@ -49,6 +49,7 @@ function showSvgPreview(svgContent) {
 
   svgPreviewDiv.querySelector('.close-btn').onclick = () => {
     svgPreviewDiv.remove();
+    svgPreviewDiv = null;
     // 显示预览按钮
     const previewBtn = document.querySelector('.ai-cover-result .preview-btn');
     if (previewBtn) {

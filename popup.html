@@ -8,23 +8,22 @@
 <body>
   <div class="container">
     <div class="header">
-      <div class="title">
+      <div class="title-section">
         <h1>文图图</h1>
         <div class="subtitle">Text To SVG</div>
       </div>
-    </div>
-    
-    <div class="prompt-select">
-      <label for="promptType">选择封面类型：</label>
-      <select id="promptType">
-        <option value="xiaohongshu">小红书封面</option>
-        <option value="wordcloud">词云封面</option>
-        <option value="textlogic">文本逻辑图</option>
-      </select>
+      <div class="prompt-select">
+        <select id="promptType">
+          <option value="xiaohongshu">小红书封面</option>
+          <option value="wordcloud">词云封面</option>
+          <option value="textlogic">文本逻辑图</option>
+        </select>
+      </div>
     </div>
 
     <div class="actions">
       <button id="generateFullCover">为当前页面内容生成封面</button>
+      <div class="tip">或选中页面内容后右键菜单生成</div>
     </div>
 
     <div class="settings-link">

@@ -1,7 +1,7 @@
 // 国际化配置
-const i18n = {
+window.i18n = {
   en: {
-    title: 'WenTuTu Plugin Settings',
+    title: 'WenTuTu Settings',
     apiSection: {
       title: 'DeepSeek API Configuration',
       keyLabel: 'API Key:',
@@ -31,7 +31,7 @@ const i18n = {
     language: 'Language'
   },
   zh: {
-    title: '文图图插件设置',
+    title: '文图图 设置',
     apiSection: {
       title: 'DeepSeek API 配置',
       keyLabel: 'API 密钥：',
