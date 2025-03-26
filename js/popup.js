@@ -289,7 +289,10 @@ F. 颜色规范：
     // 如果是内置提示词
     if (PROMPTS[promptType]) {
       console.log('Using built-in prompt:', PROMPTS[promptType]); // 添加调试日志
-      return PROMPTS[promptType];
+      return { 
+        text: PROMPTS[promptType],
+        isCustom: false
+      };
     }
     
     // 如果是自定义提示词
@@ -297,17 +300,21 @@ F. 颜色规范：
     const customPrompts = result.customPrompts || [];
     console.log('Custom prompts:', customPrompts); // 添加调试日志
     
-    // 根据选择的类型返回对应的提示词
-    switch (promptType) {
-      case 'xiaohongshu':
-        return '请为以下内容生成一个吸引眼球的小红书风格封面图。要求：1. 使用简洁有力的主标题 2. 添加合适的emoji装饰 3. 使用渐变背景 4. 突出核心卖点';
-      case 'wordcloud':
-        return '请为以下内容生成一个词云风格的封面图。要求：1. 提取关键词 2. 使用不同大小和颜色展示词语重要性 3. 合理布局，确保可读性';
-      case 'textlogic':
-        return '请为以下内容生成一个逻辑关系图。要求：1. 清晰展示概念之间的关系 2. 使用箭头或线条连接相关概念 3. 使用合适的布局确保整体美观';
-      default:
-        return '请为以下内容生成一个封面图。要求：1. 主题突出 2. 布局合理 3. 视觉美观';
+    // 查找匹配的自定义提示词
+    const customPrompt = customPrompts.find(p => p.id === promptType);
+    if (customPrompt) {
+      console.log('Using custom prompt:', customPrompt.content);
+      return {
+        text: customPrompt.content,
+        isCustom: true
+      };
     }
+    
+    // 如果没有找到匹配的提示词，返回默认提示词
+    return {
+      text: '请为以下内容生成一个封面图。要求：1. 主题突出 2. 布局合理 3. 视觉美观',
+      isCustom: false
+    };
   }
 
   // 检查是否已配置API密钥
@@ -357,7 +364,9 @@ F. 颜色规范：
         action: "generateCover",
         text: response.content,
         type: "full",
-        systemPrompt: selectedPrompt
+        systemPrompt: selectedPrompt.text,
+        isCustomPrompt: selectedPrompt.isCustom,
+        pageContent: selectedPrompt.isCustom ? response.content : null
       });
 
       // 关闭popup

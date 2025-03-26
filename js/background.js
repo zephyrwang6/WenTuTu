@@ -298,14 +298,15 @@ F. 颜色规范：
 // 处理来自popup或content script的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "generateCover") {
-    generateCover(request.text, request.systemPrompt);
+    generateCover(request.text, request.systemPrompt, request.isCustomPrompt, request.pageContent);
   }
 });
 
 // 生成封面的主要函数
-async function generateCover(text, customPrompt) {
+async function generateCover(text, customPrompt, isCustomPrompt = false, pageContent = null) {
   try {
     console.log("customPrompt = ", customPrompt);
+    console.log("isCustomPrompt = ", isCustomPrompt);
     const settings = await chrome.storage.sync.get(["apiKey"]);
     if (!settings.apiKey) {
       throw new Error("请先在设置中配置API密钥");
@@ -316,6 +317,22 @@ async function generateCover(text, customPrompt) {
       chrome.tabs.sendMessage(tabs[0].id, { action: "startGeneration" });
     });
 
+    // 准备消息内容
+    const messages = [];
+    
+    // 添加系统提示词
+    messages.push({
+      role: "system",
+      content: customPrompt || "请为以下文章生成一个吸引人的封面图片描述。"
+    });
+    
+    // 如果是自定义提示词且有页面内容，则一起发送
+    if (isCustomPrompt && pageContent) {
+      messages.push({ role: "user", content: `页面内容：${pageContent}\n\n用户选择的内容：${text}` });
+    } else {
+      messages.push({ role: "user", content: text });
+    }
+
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
@@ -324,14 +341,7 @@ async function generateCover(text, customPrompt) {
       },
       body: JSON.stringify({
         model: "deepseek-chat",
-        messages: [
-          {
-            role: "system",
-            content:
-              customPrompt || "请为以下文章生成一个吸引人的封面图片描述。",
-          },
-          { role: "user", content: text },
-        ],
+        messages: messages,
         temperature: 0.7,
         max_tokens: 2000,
         stream: true,

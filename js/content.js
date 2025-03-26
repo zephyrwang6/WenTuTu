@@ -168,9 +168,126 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     setTimeout(() => scrollToBottom(resultDiv), 100);
   }
 
-  else if (request.action === "error") {
+  else if (request.action === "error" || request.action === "showError") {
     if (resultDiv) resultDiv.remove();
     if (svgPreviewDiv) svgPreviewDiv.remove();
-    alert(request.message);
+    
+    // 创建错误提示框
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'ai-cover-error';
+    errorDiv.innerHTML = `
+      <div class="error-content">
+        <h3>错误提示</h3>
+        <p>${request.message || '生成封面时出错'}</p>
+        <button class="close-btn">关闭</button>
+      </div>
+    `;
+    
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+      .ai-cover-error {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+        max-width: 400px;
+        width: 90%;
+      }
+      .ai-cover-error .error-content {
+        padding: 20px;
+      }
+      .ai-cover-error h3 {
+        margin-top: 0;
+        color: #e74c3c;
+      }
+      .ai-cover-error p {
+        margin: 10px 0 20px;
+      }
+      .ai-cover-error .close-btn {
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        float: right;
+      }
+      .ai-cover-error .close-btn:hover {
+        background-color: #c0392b;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // 添加关闭按钮事件
+    errorDiv.querySelector('.close-btn').onclick = () => {
+      errorDiv.remove();
+    };
+    
+    document.body.appendChild(errorDiv);
+    
+    // 5秒后自动关闭
+    setTimeout(() => {
+      if (document.body.contains(errorDiv)) {
+        errorDiv.remove();
+      }
+    }, 5000);
+  }
+
+  else if (request.action === "displaySVG") {
+    // 显示SVG内容
+    if (request.svg) {
+      lastSvgContent = request.svg;
+      
+      // 如果没有结果div，创建一个
+      if (!resultDiv) {
+        resultDiv = document.createElement('div');
+        resultDiv.className = 'ai-cover-result';
+        resultDiv.innerHTML = `
+          <div class="header">
+            <h3>SVG生成</h3>
+            <div class="actions">
+              <button class="preview-btn">预览</button>
+              <button class="copy-btn">复制</button>
+              <button class="close-btn">&times;</button>
+            </div>
+          </div>
+          <div class="content-wrapper">
+            <div class="content"></div>
+          </div>
+        `;
+
+        resultDiv.querySelector('.close-btn').onclick = () => resultDiv.remove();
+        resultDiv.querySelector('.copy-btn').onclick = () => {
+          navigator.clipboard.writeText(request.svg).then(() => {
+            alert('已复制到剪贴板');
+          }).catch(err => {
+            console.error('复制失败:', err);
+          });
+        };
+
+        // 添加预览按钮点击事件
+        const previewBtn = resultDiv.querySelector('.preview-btn');
+        previewBtn.onclick = () => {
+          if (lastSvgContent) {
+            showSvgPreview(lastSvgContent);
+          }
+        };
+
+        document.body.appendChild(resultDiv);
+      }
+      
+      // 更新内容
+      const content = resultDiv.querySelector('.content');
+      content.textContent = request.svg;
+      fullContent = request.svg;
+      
+      // 显示预览
+      showSvgPreview(request.svg);
+    }
   }
 });
