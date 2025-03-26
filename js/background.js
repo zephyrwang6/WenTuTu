@@ -2,16 +2,27 @@
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "generateCoverFromSelection",
-    title: "为选中文本生成封面",
+    title: "可视化选中文本：\"%s\"",
     contexts: ["selection"],
   });
 });
 
+// 存储当前选定的提示词信息
+let currentPrompt = {
+  text: "",
+  isCustom: false
+};
+
 // 处理上下文菜单点击
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "generateCoverFromSelection") {
-    const customPrompt = await getSelectedPrompt();
-    generateCover(info.selectionText, customPrompt);
+    // 使用当前选定的提示词，如果没有则获取默认提示词
+    if (!currentPrompt.text) {
+      const defaultPrompt = await getSelectedPrompt();
+      generateCover(info.selectionText, defaultPrompt);
+    } else {
+      generateCover(info.selectionText, currentPrompt.text, currentPrompt.isCustom);
+    }
   }
 });
 
@@ -299,6 +310,9 @@ F. 颜色规范：
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "generateCover") {
     generateCover(request.text, request.systemPrompt, request.isCustomPrompt, request.pageContent);
+  } else if (request.action === "savePrompt") {
+    currentPrompt.text = request.promptText;
+    currentPrompt.isCustom = request.isCustom;
   }
 });
 

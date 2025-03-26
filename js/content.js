@@ -71,15 +71,36 @@ function showSvgPreview(svgContent) {
   
   // 获取原始尺寸
   const viewBox = svgElement.getAttribute('viewBox');
-  const [, , vbWidth, vbHeight] = viewBox ? viewBox.split(' ').map(Number) : [0, 0, 360, 360];
+  const [, , vbWidth, vbHeight] = viewBox ? viewBox.split(' ').map(Number) : [0, 0, 600, 800];
   
-  // 设置固定宽度，高度自适应保持比例
+  // 计算宽高比
+  const aspectRatio = vbWidth / vbHeight;
+  
+  // 设置SVG尺寸 - 保持宽度固定，但根据内容调整高度
   const containerWidth = 360;
-  const containerHeight = (containerWidth * vbHeight) / vbWidth;
+  const containerHeight = containerWidth / aspectRatio;
   
-  // 设置SVG尺寸
-  svgElement.setAttribute('width', containerWidth);
-  svgElement.setAttribute('height', containerHeight);
+  // 保持原始尺寸，让容器滚动
+  svgElement.setAttribute('width', vbWidth);
+  svgElement.setAttribute('height', vbHeight);
+  
+  // 如果内容较小，则适应容器
+  if (vbWidth <= containerWidth && vbHeight <= 450) {
+    svgElement.setAttribute('width', vbWidth);
+    svgElement.setAttribute('height', vbHeight);
+  } 
+  // 如果内容较大，则按比例缩放，但保持原始比例
+  else {
+    // 计算适合容器的缩放比例
+    const widthRatio = containerWidth / vbWidth;
+    const heightRatio = 450 / vbHeight;
+    const ratio = Math.min(widthRatio, heightRatio);
+    
+    // 应用缩放
+    svgElement.setAttribute('width', vbWidth * ratio);
+    svgElement.setAttribute('height', vbHeight * ratio);
+  }
+  
   svgElement.style.display = 'block';
   
   svgContainer.innerHTML = '';

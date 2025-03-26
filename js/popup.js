@@ -4,6 +4,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const generateFullCoverBtn = document.getElementById('generateFullCover');
   const openSettingsLink = document.getElementById('openSettings');
   const promptTypeSelect = document.getElementById('promptType');
+  const customTextArea = document.getElementById('customText');
+  const charCountSpan = document.getElementById('charCount');
+  const sendCustomTextBtn = document.getElementById('sendCustomText');
 
   // 提示词映射
   const PROMPTS = {
@@ -140,181 +143,180 @@ E. 装饰要素：
 - 修改注释标识以匹配新主题
 - 根据主题调整装饰元素的形状或样式
 - 保持原有的透明度和位置关系
-F. 颜色规范：
-- 背景使用两种相近色渐变
-- 文字颜色需与背景形成足够对比
-- 装饰元素颜色需协调统一
-
-4. 代码结构：
-- 保持原有的 SVG 基本结构
-- 保留所有 defs 定义
-- 维持原有的分组和图层顺序
-- 保留注释，但更新注释内容
-
-;; 1. 必须生成SVG代码
-;; 2. 根据内容主题选择合适的背景渐变色，和主题高度相关
-;; 3. No other comments!!`,
+F. 输出规范：
+- 必须生成完整有效的SVG代码
+- 包含所有必要的SVG元素和属性
+- 保持原有的过滤器效果
+- 不添加任何非必要的注释
+- 确保SVG代码格式规范
+`,
 
     textlogic: `
-;;; 文图图提示词：文本逻辑关系图
-;;; 用途: 将{输入文字}转换为精准的单一逻辑关系SVG图
+;; 文图图提示词：文本逻辑关系图
+;; 任务：将输入的文本内容转换为简洁清晰的逻辑关系SVG图
 
-(defun 逻辑关系分析专家 ()
-  "你是一位精通逻辑关系分析和可视化的专家"
-  (熟知 . (递进关系 流程关系 循环关系 层次结构 对比关系 矩阵关系))
-  (擅长 . (深度文本分析 概念抽象 逻辑推理 美观可视化设计))
-  (方法 . (语义网络分析 结构化思维 创造性设计 多维度关系表达)))
+;; 特性定义
+(defvar *支持的逻辑关系* '(递进关系 流程关系 循环关系 层次结构 对比关系 矩阵关系))
+(defvar *精简视觉风格* '(极简 现代 清晰 专业 灰度))
+(defvar *图表类型* '(流程图 关系图 树状图 矩阵图 雷达图 时间线))
 
-(defun 生成逻辑关系图 (用户输入)
-  "将输入文字转换为单一逻辑关系的SVG图"
-  (let* ((分析结果 (深度分析文本关系 用户输入))
-         (最佳关系类型 (智能选择最佳关系类型 分析结果))
-         (抽象概念 (抽象并精简核心概念 (assoc 最佳关系类型 分析结果)))
-         (可视化设计 (设计美观可视化方案 最佳关系类型 抽象概念))
-         (svg图 (生成优化SVG图 最佳关系类型 可视化设计)))
-    (输出SVG图 svg图)))
-
-(defun 深度分析文本关系 (文本)
-  "使用语义网络分析文本中的逻辑关系"
-  (setq 关系类型 '(递进 流程 循环 层次结构 对比 矩阵))
-  (mapcar #'(lambda (类型) (cons 类型 (深度识别关系 文本 类型))) 关系类型))
-
-(defun 智能选择最佳关系类型 (分析结果)
-  "根据深度分析结果智能选择最适合的关系类型"
-  (car (sort 分析结果 #'> :key #'(lambda (x) (+ (cdr x) (关系复杂度权重 (car x)))))))
-
-(defun 抽象并精简核心概念 (分析结果)
-  "对分析结果进行抽象和精简，提取核心概念"
-  (list (智能概括要点 (cdr 分析结果))
-        (提取关键概念 (cdr 分析结果))))
-
-(defun 设计美观可视化方案 (关系类型 抽象概念)
-  "为选定的关系类型设计美观且富有表现力的可视化方案"
-  (list (优化布局设计 关系类型 (first 抽象概念))
-        (设计美观样式 关系类型 (second 抽象概念))))
-
-(defun 生成优化SVG图 (关系类型 可视化设计)
-  "生成经过优化的选定关系类型的SVG图"
-  (case 关系类型
-    (递进 (生成美观递进SVG (first 可视化设计) (second 可视化设计)))
-    (流程 (生成美观流程SVG (first 可视化设计) (second 可视化设计)))
-    (循环 (生成美观循环SVG (first 可视化设计) (second 可视化设计)))
-    (层次结构 (生成美观层次结构SVG (first 可视化设计) (second 可视化设计)))
-    (对比 (生成美观对比SVG (first 可视化设计) (second 可视化设计)))
-    (矩阵 (生成美观矩阵SVG (first 可视化设计) (second 可视化设计)))))
-
-(defun svg-template (&rest 内容)
-  "优化的SVG模板，支持更多自定义选项"
-  (svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600"
-    (defs
-      (marker id="arrowhead" markerWidth="10" markerHeight="7"
-              refX="0" refY="3.5" orient="auto"
-        (polygon points="0 0, 10 3.5, 0 7" fill="#808080"))),
-    @内容))
-
-(defun 智能绘制连接线 (x1 y1 x2 y2 &optional 曲线程度)
-  "智能绘制灰色虚线箭头，避免穿过色块"
-  (let ((dx (- x2 x1))
-        (dy (- y2 y1))
-        (mid-x (/ (+ x1 x2) 2))
-        (mid-y (/ (+ y1 y2) 2)))
-    (if 曲线程度
-        (path d ,(format "M%d,%d Q%d,%d %d,%d"
-                        x1 y1
-                        (+ mid-x (* dx 曲线程度))
-                        (+ mid-y (* dy 曲线程度))
-                        x2 y2)
-              stroke="#808080" stroke-width="2" stroke-dasharray="5,5"
-              fill="none" marker-end="url(#arrowhead)")
-        '(path d ,(format "M%d,%d L%d,%d" x1 y1 x2 y2)
-               stroke="#808080" stroke-width="2" stroke-dasharray="5,5"
-               marker-end="url(#arrowhead)"))))
-
-(defun start ()
-  "启动时运行"
-  (let (system-role 逻辑关系分析专家)
-    (print "请输入一段文字，我将为您生成最适合且美观的逻辑关系SVG图")
-    (print "示例：输入描述某个概念或现象的文字，将生成递进、流程、循环、层次结构、对比或矩阵中最合适的关系图")))
-
-;;; 运行规则
-;; 1. 运行上面的函数规则，必须输出svg代码
-;; 2. 先调用主函数 (生成逻辑关系图 用户输入)
-;; 3. 严格按照智能选择的关系类型的SVG生成函数进行图形呈现
-
-;;; 注意事项
-;; - 确保生成的关系图能精准表达相应的逻辑关系
-;; - 使用和谐的颜色方案、优雅的形状和合理的布局来表现关系类型
+;; 风格规范
+- 配色方案：灰度色调为主，使用#eee、#ddd、#ccc、#999、#666、#333色阶
+- 字体规范：无衬线字体，主要概念用粗体，次要概念用细体
+- 线条样式：轻量细线，灰色虚线（透明度在0.6-0.8之间）
+- 形状风格：简约圆角矩形，最小化边框，突出内容
+- 排版原则：重视信息层次，保持视觉平衡，给适当留白
+- 箭头样式：细线灰色虚线箭头，视觉轻量
+;; - 必须确保准确表达原文本中的逻辑关系
+;; - 尽量使用现代简约的视觉语言，避免过多的装饰元素
 ;; - 保持整体设计的一致性、美观性和专业性
 ;; - 确保文字的可读性和清晰度，适当使用字体大小和粗细变化
 ;; - 使用灰色虚线箭头智能表示关系的方向和连接，避免箭头穿过色块
 ;; - 在色块附近合理安排细分内容，保持整洁而不省略关键细节
 ;; - 画布采用600*800，整体布局要有适当的留白和呼吸感，合理安排元素位置
-;; - 对于复杂的概念，通过分层或分组来简化表达，突出核心逻辑
-;; - 根据内容复杂度，动态调整字体大小和元素大小，确保整体平衡
-;; - 适当使用渐变、阴影等效果增强视觉吸引力，但不要过度使用影响清晰度
-;; - 为不同类型的关系图设计独特的视觉风格，增强识别度
-;; - No other comments`
+
+;; 处理流程
+(defun 解析逻辑关系 (文本)
+  (cond
+    ((流程关系? 文本) '流程关系)
+    ((递进关系? 文本) '递进关系)
+    ((循环关系? 文本) '循环关系)
+    ((层次结构? 文本) '层次结构)
+    ((对比关系? 文本) '对比关系)
+    ((矩阵关系? 文本) '矩阵关系)
+    (t '流程关系))) ;; 默认为流程关系
+
+(defun 生成SVG图 (文本)
+  (let* ((逻辑关系 (解析逻辑关系 文本))
+         (核心概念 (提取核心概念 文本))
+         (关系连接 (建立关系 核心概念 逻辑关系)))
+    (渲染SVG 核心概念 关系连接 逻辑关系)))
+
+;; 输出：完整的SVG代码，不包含任何解释性文字
+
+(defvar *注意事项*
+"1. 仅输出SVG代码，不要有任何其他解释或说明
+2. 确保理解文本的真实逻辑关系，避免生成无意义的图表
+3. 尽量提炼核心概念，但不要丢失重要信息和逻辑
+4. 保持图表简洁清晰，信息层次分明
+5. 生成的SVG要完整有效，包含所有必要的元素和属性")
+`
   };
 
-  // 加载保存的提示词类型和自定义提示词
-  chrome.storage.sync.get(['promptType', 'customPrompts'], function(result) {
-    // 加载自定义提示词到下拉框
-    const customPrompts = result.customPrompts || [];
-    const enabledPrompts = customPrompts.filter(p => p.enabled && p.name && p.content);
-    
-    // 添加自定义提示词到select
-    enabledPrompts.forEach(prompt => {
-      const option = document.createElement('option');
-      option.value = prompt.id;
-      option.textContent = prompt.name;
-      promptTypeSelect.appendChild(option);
-    });
-
-    // 设置选中的提示词类型
-    if (result.promptType) {
-      promptTypeSelect.value = result.promptType;
+  // 监听提示词类型选择变化
+  promptTypeSelect.addEventListener('change', async function() {
+    try {
+      // 获取当前选择的提示词
+      const selectedPrompt = await getSelectedPrompt();
+      
+      // 发送提示词信息到background script
+      chrome.runtime.sendMessage({
+        action: "savePrompt",
+        promptText: selectedPrompt.text,
+        isCustom: selectedPrompt.isCustom
+      });
+    } catch (error) {
+      console.error('保存当前提示词失败:', error);
     }
   });
 
-  // 保存提示词类型选择
-  promptTypeSelect.addEventListener('change', function() {
-    chrome.storage.sync.set({ promptType: this.value });
+  // 监听自定义文本输入和字符计数
+  customTextArea.addEventListener('input', function() {
+    const textLength = this.value.length;
+    charCountSpan.textContent = `${textLength}/1500`;
+    
+    // 添加字符数预警颜色
+    if (textLength > 1350) {
+      charCountSpan.style.color = '#ff4444';
+    } else if (textLength > 1000) {
+      charCountSpan.style.color = '#ff8800';
+    } else {
+      charCountSpan.style.color = '#666';
+    }
+  });
+
+  // 处理自定义文本发送
+  sendCustomTextBtn.addEventListener('click', async function() {
+    try {
+      const customText = customTextArea.value.trim();
+      
+      // 验证输入
+      if (!customText) {
+        alert('请先输入自定义文本');
+        return;
+      }
+      
+      // 首先检查API密钥
+      if (!await checkApiKey()) return;
+      
+      // 获取当前选择的提示词
+      const selectedPrompt = await getSelectedPrompt();
+      
+      // 获取当前标签页
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs || tabs.length === 0) {
+        throw new Error('无法获取当前标签页');
+      }
+      const tab = tabs[0];
+      
+      // 注入content script
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['js/content.js']
+      });
+      
+      // 发送消息到background script生成封面
+      chrome.runtime.sendMessage({
+        action: "generateCover",
+        text: customText,
+        type: "custom",
+        systemPrompt: selectedPrompt.text,
+        isCustomPrompt: selectedPrompt.isCustom,
+        pageContent: null // 自定义文本不需要页面内容
+      });
+      
+      // 关闭popup
+      window.close();
+      
+    } catch (error) {
+      console.error('Error:', error);
+      alert('错误：' + error.message);
+    }
   });
 
   // 获取当前选中的提示词内容
   async function getSelectedPrompt() {
     const promptType = promptTypeSelect.value;
-    console.log('Selected prompt type:', promptType); // 添加调试日志
     
-    // 如果是内置提示词
+    // 如果是内置提示词类型
     if (PROMPTS[promptType]) {
-      console.log('Using built-in prompt:', PROMPTS[promptType]); // 添加调试日志
-      return { 
+      return {
         text: PROMPTS[promptType],
         isCustom: false
       };
     }
     
-    // 如果是自定义提示词
-    const result = await chrome.storage.sync.get(['customPrompts']);
-    const customPrompts = result.customPrompts || [];
-    console.log('Custom prompts:', customPrompts); // 添加调试日志
-    
-    // 查找匹配的自定义提示词
-    const customPrompt = customPrompts.find(p => p.id === promptType);
-    if (customPrompt) {
-      console.log('Using custom prompt:', customPrompt.content);
+    // 否则尝试获取自定义提示词
+    try {
+      const settings = await chrome.storage.sync.get(['customPrompts']);
+      const customPrompts = settings.customPrompts || [];
+      
+      // 查找对应ID的自定义提示词
+      const customPrompt = customPrompts.find(p => p.id === promptType && p.enabled);
+      
+      if (!customPrompt) {
+        throw new Error(`未找到ID为 ${promptType} 的自定义提示词`);
+      }
+      
       return {
         text: customPrompt.content,
         isCustom: true
       };
+    } catch (error) {
+      console.error('获取自定义提示词失败:', error);
+      alert('获取提示词失败: ' + error.message);
+      throw error;
     }
-    
-    // 如果没有找到匹配的提示词，返回默认提示词
-    return {
-      text: '请为以下内容生成一个封面图。要求：1. 主题突出 2. 布局合理 3. 视觉美观',
-      isCustom: false
-    };
   }
 
   // 检查是否已配置API密钥
@@ -401,4 +403,41 @@ F. 颜色规范：
       alert("错误：" + request.message);
     }
   });
+
+  // 初始化
+  function initialize() {
+    // 加载自定义提示词选项
+    chrome.storage.sync.get(['customPrompts'], function(result) {
+      const customPrompts = result.customPrompts || [];
+      
+      // 清除已有的自定义提示词选项（如果重新初始化）
+      const existingOptions = promptTypeSelect.querySelectorAll('option[data-custom="true"]');
+      existingOptions.forEach(option => option.remove());
+      
+      // 添加已启用的自定义提示词选项
+      customPrompts.forEach(prompt => {
+        if (prompt.enabled) {
+          const option = document.createElement('option');
+          option.value = prompt.id;
+          option.textContent = prompt.name;
+          option.dataset.custom = "true";
+          promptTypeSelect.appendChild(option);
+        }
+      });
+      
+      // 初始化时保存当前选择的提示词到background
+      getSelectedPrompt().then(selectedPrompt => {
+        chrome.runtime.sendMessage({
+          action: "savePrompt",
+          promptText: selectedPrompt.text,
+          isCustom: selectedPrompt.isCustom
+        });
+      }).catch(error => {
+        console.error('初始化提示词保存失败:', error);
+      });
+    });
+  }
+  
+  // 初始化
+  initialize();
 });

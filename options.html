@@ -2,77 +2,111 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>WenTuTu Settings</title>
+  <title>文图图设置</title>
   <link rel="stylesheet" type="text/css" href="css/options.css">
+  <style>
+    .test-btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+    .test-btn:hover {
+      background-color: #45a049;
+    }
+    .help-text {
+      margin-bottom: 15px;
+      color: #666;
+    }
+    .api-input-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .api-input-group input {
+      flex-grow: 1;
+    }
+    .success-message {
+      color: #4CAF50;
+      font-weight: bold;
+      margin-top: 5px;
+      display: none;
+    }
+    .error-message {
+      color: #f44336;
+      font-weight: bold;
+      margin-top: 5px;
+      display: none;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1 data-i18n="title">WenTuTu Settings</h1>
-      <div class="language-selector">
-        <label data-i18n="language">Language:</label>
-        <select id="languageSelect">
-          <option value="en">English</option>
-          <option value="zh">中文</option>
-        </select>
-      </div>
+      <h1>文图图设置</h1>
     </div>
     
     <div class="section">
-      <h2 data-i18n="apiSection.title">DeepSeek API Configuration</h2>
+      <h2>DeepSeek API配置</h2>
+      <p class="help-text">
+        从 <a href="https://platform.deepseek.com/" target="_blank">DeepSeek平台</a> 获取您的API密钥
+      </p>
       <div class="form-group">
-        <label for="apiKey" data-i18n="apiSection.keyLabel">API Key:</label>
-        <input type="password" id="apiKey" data-i18n-placeholder="apiSection.keyPlaceholder">
-        <p class="help-text">
-          <span data-i18n="apiSection.helpText">Get your API key from</span>
-          <a href="https://platform.deepseek.com/" target="_blank">DeepSeek Platform</a>
-        </p>
+        <label for="apiKey">API密钥:</label>
+        <div class="api-input-group">
+          <input type="password" id="apiKey" placeholder="请输入您的API密钥">
+          <button id="testApiKey" class="test-btn">测试连接</button>
+        </div>
+        <div id="apiTestSuccess" class="success-message">连接成功！API密钥有效。</div>
+        <div id="apiTestError" class="error-message">连接失败，请检查您的API密钥。</div>
       </div>
     </div>
 
     <div class="section">
-      <h2 data-i18n="customPrompts.title">Custom Prompts</h2>
-      <p class="help-text" data-i18n="customPrompts.helpText">You can create up to 5 custom prompts. Each prompt will be available in the popup menu.</p>
+      <h2>自定义提示词</h2>
+      <p class="help-text">您可以创建最多5个自定义提示词。每个提示词都将在弹出菜单中可用。</p>
       
       <div id="customPrompts">
-        <!-- Custom prompt templates will be dynamically added here -->
+        <!-- 自定义提示词模板将在这里动态添加 -->
       </div>
 
       <div class="button-group">
-        <button id="addPrompt" class="secondary" data-i18n="customPrompts.addButton">Add Custom Prompt</button>
-        <button id="resetPrompts" class="secondary" data-i18n="customPrompts.resetButton">Reset All</button>
+        <button id="addPrompt" class="secondary">添加自定义提示词</button>
+        <button id="resetPrompts" class="secondary">重置所有</button>
       </div>
     </div>
 
     <div class="button-group">
-      <button id="save" data-i18n="save">Save Settings</button>
+      <button id="save">保存设置</button>
     </div>
 
-    <!-- Toast notification -->
+    <!-- 提示通知 -->
     <div id="toast" class="toast"></div>
 
-    <!-- Custom prompt template -->
+    <!-- 自定义提示词模板 -->
     <template id="promptTemplate">
       <div class="custom-prompt">
         <div class="prompt-header">
           <div class="prompt-enable">
             <input type="checkbox" class="prompt-enabled" id="enabled_{{id}}">
-            <label for="enabled_{{id}}" data-i18n="customPrompts.enable">Enable</label>
+            <label for="enabled_{{id}}">启用</label>
           </div>
-          <button class="delete-prompt" title="Delete this prompt">×</button>
+          <button class="delete-prompt" title="删除此提示词">×</button>
         </div>
         <div class="form-group">
-          <label for="name_{{id}}" data-i18n="customPrompts.nameLabel">Prompt Name:</label>
-          <input type="text" class="prompt-name" id="name_{{id}}" data-i18n-placeholder="customPrompts.namePlaceholder" maxlength="20">
+          <label for="name_{{id}}">提示词名称:</label>
+          <input type="text" class="prompt-name" id="name_{{id}}" placeholder="输入提示词名称" maxlength="20">
         </div>
         <div class="form-group">
-          <label for="content_{{id}}" data-i18n="customPrompts.contentLabel">Prompt Content:</label>
-          <textarea class="prompt-content" id="content_{{id}}" rows="6" data-i18n-placeholder="customPrompts.contentPlaceholder"></textarea>
+          <label for="content_{{id}}">提示词内容:</label>
+          <textarea class="prompt-content" id="content_{{id}}" rows="6" placeholder="输入提示词内容..."></textarea>
         </div>
       </div>
     </template>
   </div>
-  <script src="js/i18n.js"></script>
   <script src="js/options.js"></script>
 </body>
 </html>
