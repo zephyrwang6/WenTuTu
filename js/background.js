@@ -306,13 +306,48 @@ F. 颜色规范：
   }
 }
 
+// 刷新所有活动标签页的内容脚本
+function refreshContentScripts() {
+  chrome.tabs.query({}, (tabs) => {
+    for (const tab of tabs) {
+      if (tab.url && tab.url.startsWith('http')) {
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          function: () => {
+            // 通知内容脚本重新应用样式
+            window.dispatchEvent(new CustomEvent('wen-tu-tu-refresh-styles'));
+          }
+        }).catch(err => console.error('Failed to execute script:', err));
+      }
+    }
+  });
+}
+
 // 处理来自popup或content script的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "generateCover") {
-    generateCover(request.text, request.systemPrompt, request.isCustomPrompt, request.pageContent);
+    generateCover(request.text, request.systemPrompt, request.isCustomPrompt, request.pageContent).then(data => {
+      sendResponse(data);
+    }).catch(error => {
+      sendResponse({error: error.message || "Generate failed"});
+    });
+    return true;
   } else if (request.action === "savePrompt") {
-    currentPrompt.text = request.promptText;
-    currentPrompt.isCustom = request.isCustom;
+    // 保存当前选中的提示词
+    currentPrompt = request.promptText;
+    currentPromptIsCustom = request.isCustom;
+    return false;
+  } else if (request.action === "refreshContentScripts") {
+    // 触发刷新所有标签页的内容脚本
+    refreshContentScripts();
+    sendResponse({success: true});
+    return true;
+  } else if (request.action === "settingsUpdated") {
+    // 接收到设置更新通知，刷新缓存的设置
+    console.log("Settings updated:", request.settings);
+    // 如果有需要，可以在这里缓存API密钥或其他设置
+    sendResponse({success: true});
+    return true;
   }
 });
 
@@ -321,14 +356,21 @@ async function generateCover(text, customPrompt, isCustomPrompt = false, pageCon
   try {
     console.log("customPrompt = ", customPrompt);
     console.log("isCustomPrompt = ", isCustomPrompt);
+    
+    // 获取 API 密钥
     const settings = await chrome.storage.sync.get(["apiKey"]);
-    if (!settings.apiKey) {
-      throw new Error("请先在设置中配置API密钥");
+    if (!settings.apiKey || settings.apiKey.trim() === '') {
+      console.error("API 密钥未配置");
+      return { error: "请先在设置中配置 API 密钥" };
     }
+    
+    const apiKey = settings.apiKey.trim();
 
     // 通知开始生成
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, { action: "startGeneration" });
+      if (tabs && tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "startGeneration" });
+      }
     });
 
     // 准备消息内容
@@ -347,11 +389,13 @@ async function generateCover(text, customPrompt, isCustomPrompt = false, pageCon
       messages.push({ role: "user", content: text });
     }
 
+    console.log("正在发送请求到 DeepSeek API...");
+    
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${settings.apiKey}`,
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "deepseek-chat",

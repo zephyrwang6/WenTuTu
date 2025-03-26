@@ -135,24 +135,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // 加载已保存的设置
   function loadSettings() {
     chrome.storage.sync.get(['apiKey', 'customPrompts'], function(items) {
-      // 设置默认API密钥
-      document.getElementById('apiKey').value = items.apiKey || 'sk-43988229df074808b574fd6224aa98a9';
-      
-      // 添加API密钥说明文本
-      const apiKeyInput = document.getElementById('apiKey');
-      const apiKeyParent = apiKeyInput.parentElement.parentElement;
-      
-      // 检查是否已经存在说明文本，避免重复添加
-      if (!document.getElementById('apiKeyMessage')) {
-        const messageElement = document.createElement('p');
-        messageElement.id = 'apiKeyMessage';
-        messageElement.style.color = '#666';
-        messageElement.style.fontSize = '14px';
-        messageElement.style.marginTop = '5px';
-        messageElement.textContent = '开发者已为您写入了体验密钥，建议使用个人API，如需交流请联系微信：77213305';
-        apiKeyParent.appendChild(messageElement);
-      }
-      
       // 加载自定义提示词，如果没有则使用默认提示词
       if (items.customPrompts && items.customPrompts.length > 0) {
         customPrompts = items.customPrompts;
@@ -161,6 +143,12 @@ document.addEventListener('DOMContentLoaded', function() {
         customPrompts = [...defaultPrompts];
         // 保存默认提示词到存储
         savePrompts(false);
+      }
+      
+      // 加载API密钥
+      const apiKey = items.apiKey;
+      if (apiKey) {
+        document.getElementById('apiKey').value = apiKey;
       }
       
       renderCustomPrompts();
@@ -332,7 +320,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // 保存所有设置
   function saveSettings() {
     // 获取API密钥
-    const apiKey = document.getElementById('apiKey').value.trim() || 'sk-43988229df074808b574fd6224aa98a9';
+    const apiKey = document.getElementById('apiKey').value.trim();
+    
+    // 确保API密钥不为空
+    if (!apiKey) {
+      showToast('请输入有效的API密钥');
+      return;
+    }
     
     // 保存到Chrome存储
     chrome.storage.sync.set(
@@ -342,6 +336,12 @@ document.addEventListener('DOMContentLoaded', function() {
       },
       function() {
         showToast('设置已保存');
+        
+        // 确认设置已保存，通知background和其他页面
+        chrome.runtime.sendMessage({
+          action: "settingsUpdated",
+          settings: { apiKey: apiKey }
+        });
       }
     );
   }

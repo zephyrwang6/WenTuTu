@@ -1,5 +1,5 @@
 // Popup script
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   // 获取元素
   const generateFullCoverBtn = document.getElementById('generateFullCover');
   const openSettingsLink = document.getElementById('openSettings');
@@ -321,13 +321,20 @@ F. 输出规范：
 
   // 检查是否已配置API密钥
   async function checkApiKey() {
-    const settings = await chrome.storage.sync.get(['apiKey']);
-    if (!settings.apiKey) {
-      alert('请先在设置页面配置 DeepSeek API 密钥');
+    try {
+      const settings = await chrome.storage.sync.get(['apiKey']);
+      if (!settings.apiKey || settings.apiKey.trim() === '') {
+        alert('请先在设置页面配置 DeepSeek API 密钥');
+        chrome.runtime.openOptionsPage();
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('获取API密钥时出错:', error);
+      alert('获取API密钥时出错，请重新配置');
       chrome.runtime.openOptionsPage();
       return false;
     }
-    return true;
   }
 
   // 处理生成全文封面
@@ -404,8 +411,20 @@ F. 输出规范：
     }
   });
 
+  // 当popup打开时，刷新所有标签页的内容脚本以确保样式更新
+  function refreshAllContentScripts() {
+    chrome.runtime.sendMessage({
+      action: "refreshContentScripts"
+    }, (response) => {
+      console.log("Content scripts refreshed:", response);
+    });
+  }
+
   // 初始化
-  function initialize() {
+  async function initialize() {
+    // 刷新内容脚本以确保样式更新
+    refreshAllContentScripts();
+    
     // 加载自定义提示词选项
     chrome.storage.sync.get(['customPrompts'], function(result) {
       const customPrompts = result.customPrompts || [];
