@@ -301,7 +301,7 @@ F. 输出规范：
     
     // 否则尝试获取自定义提示词
     try {
-      const settings = await chrome.storage.sync.get(['customPrompts']);
+      const settings = await chrome.storage.local.get(['customPrompts']);
       const customPrompts = settings.customPrompts || [];
       
       // 查找对应ID的自定义提示词
@@ -428,44 +428,62 @@ F. 输出规范：
     // 刷新内容脚本以确保样式更新
     refreshAllContentScripts();
     
-    // 加载自定义提示词选项
-    chrome.storage.sync.get(['customPrompts', 'lastSelectedPromptType'], function(result) {
-      const customPrompts = result.customPrompts || [];
-      const lastSelectedPromptType = result.lastSelectedPromptType || 'default';
+    // 先从 sync storage 加载上次选择的提示词类型
+    chrome.storage.sync.get(['lastSelectedPromptType'], function(syncResult) {
+      const lastSelectedPromptType = syncResult.lastSelectedPromptType || 'default';
+      console.log('上次选择的提示词类型:', lastSelectedPromptType);
       
-      // 清除已有的自定义提示词选项（如果重新初始化）
-      const existingOptions = promptTypeSelect.querySelectorAll('option[data-custom="true"]');
-      existingOptions.forEach(option => option.remove());
-      
-      // 添加已启用的自定义提示词选项
-      customPrompts.forEach(prompt => {
-        if (prompt.enabled) {
-          const option = document.createElement('option');
-          option.value = prompt.id;
-          option.textContent = prompt.name;
-          option.dataset.custom = "true";
-          promptTypeSelect.appendChild(option);
-        }
-      });
-      
-      // 设置上次选择的提示词类型
-      if (lastSelectedPromptType) {
-        // 检查选项是否存在
-        const optionExists = Array.from(promptTypeSelect.options).some(option => option.value === lastSelectedPromptType);
-        if (optionExists) {
-          promptTypeSelect.value = lastSelectedPromptType;
-        }
-      }
-      
-      // 初始化时保存当前选择的提示词到background
-      getSelectedPrompt().then(selectedPrompt => {
-        chrome.runtime.sendMessage({
-          action: "savePrompt",
-          promptText: selectedPrompt.text,
-          isCustom: selectedPrompt.isCustom
+      // 从 local storage 加载自定义提示词
+      chrome.storage.local.get(['customPrompts'], function(localResult) {
+        const customPrompts = localResult.customPrompts || [];
+        console.log('加载的自定义提示词:', customPrompts);
+        
+        // 清除已有的自定义提示词选项（如果重新初始化）
+        const existingOptions = promptTypeSelect.querySelectorAll('option[data-custom="true"]');
+        existingOptions.forEach(option => option.remove());
+        
+        // 添加已启用的自定义提示词选项
+        let hasEnabledPrompts = false;
+        customPrompts.forEach(prompt => {
+          if (prompt.enabled) {
+            hasEnabledPrompts = true;
+            const option = document.createElement('option');
+            option.value = prompt.id;
+            option.textContent = prompt.name;
+            option.dataset.custom = "true";
+            promptTypeSelect.appendChild(option);
+          }
         });
-      }).catch(error => {
-        console.error('初始化提示词保存失败:', error);
+        
+        // 如果没有已启用的提示词，设置默认选项
+        if (!hasEnabledPrompts && customPrompts.length > 0) {
+          console.log('没有已启用的提示词，但有自定义提示词');
+        }
+        
+        // 设置上次选择的提示词类型
+        if (lastSelectedPromptType) {
+          // 检查选项是否存在
+          const optionExists = Array.from(promptTypeSelect.options).some(option => option.value === lastSelectedPromptType);
+          if (optionExists) {
+            promptTypeSelect.value = lastSelectedPromptType;
+            console.log('设置选择器值为:', lastSelectedPromptType);
+          } else {
+            console.log('上次选择的提示词类型不存在，使用默认值');
+            // 如果上次选择的选项不存在，则设置为默认值
+            promptTypeSelect.value = 'default';
+          }
+        }
+        
+        // 初始化时保存当前选择的提示词到background
+        getSelectedPrompt().then(selectedPrompt => {
+          chrome.runtime.sendMessage({
+            action: "savePrompt",
+            promptText: selectedPrompt.text,
+            isCustom: selectedPrompt.isCustom
+          });
+        }).catch(error => {
+          console.error('初始化提示词保存失败:', error);
+        });
       });
     });
   }

@@ -376,7 +376,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "settingsUpdated") {
     // 接收到设置更新通知，刷新缓存的设置
     console.log("Settings updated:", request.settings);
+    
+    // 如果更新了自定义提示词，则刷新当前提示词缓存
+    if (request.settings && request.settings.customPrompts) {
+      // 如果当前使用的是自定义提示词，需要检查它是否仍然存在并启用
+      if (currentPrompt.isCustom) {
+        const customPrompts = request.settings.customPrompts;
+        const currentPromptId = currentPrompt.id;
+        
+        // 检查当前使用的自定义提示词是否仍然存在并启用
+        const promptStillExists = customPrompts.some(p => 
+          p.id === currentPromptId && p.enabled
+        );
+        
+        if (!promptStillExists) {
+          // 如果当前使用的提示词不再存在或被禁用，重置为默认提示词
+          currentPrompt = {
+            text: "",
+            isCustom: false
+          };
+          
+          // 更新存储
+          chrome.storage.local.set({ 'currentPrompt': currentPrompt });
+          console.log("当前使用的自定义提示词已被删除或禁用，已重置为默认提示词");
+        }
+      }
+    }
+    
     // 如果有需要，可以在这里缓存API密钥或其他设置
+    if (request.settings && request.settings.apiKey) {
+      // 缓存API密钥
+      console.log("API密钥已更新");
+    }
+    
+    // 通知所有标签页刷新内容脚本
+    refreshContentScripts();
+    
     sendResponse({success: true});
     return true;
   }

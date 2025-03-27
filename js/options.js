@@ -135,24 +135,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // 加载已保存的设置
   function loadSettings() {
-    chrome.storage.sync.get(['apiKey', 'customPrompts'], function(items) {
-      // 加载自定义提示词，如果没有则使用默认提示词
-      if (items.customPrompts && items.customPrompts.length > 0) {
-        customPrompts = items.customPrompts;
-      } else {
-        // 使用默认内置提示词
-        customPrompts = [...defaultPrompts];
-        // 保存默认提示词到存储
-        savePrompts(false);
-      }
-      
+    // 分别加载API密钥和自定义提示词
+    chrome.storage.sync.get(['apiKey'], function(items) {
       // 加载API密钥
       const apiKey = items.apiKey;
       if (apiKey) {
         document.getElementById('apiKey').value = apiKey;
       }
       
-      renderCustomPrompts();
+      // 从local storage加载自定义提示词
+      chrome.storage.local.get(['customPrompts'], function(localItems) {
+        // 加载自定义提示词，如果没有则使用默认提示词
+        if (localItems.customPrompts && localItems.customPrompts.length > 0) {
+          customPrompts = localItems.customPrompts;
+        } else {
+          // 使用默认内置提示词
+          customPrompts = [...defaultPrompts];
+          // 保存默认提示词到存储
+          savePrompts(false);
+        }
+        
+        renderCustomPrompts();
+      });
     });
   }
 
@@ -262,9 +266,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // 保存提示词到storage
   function savePrompts(showNotification = true) {
-    chrome.storage.sync.set({ customPrompts }, function() {
-      if (showNotification) {
-        showToast('设置已保存');
+    chrome.storage.local.set({ 'customPrompts': customPrompts }, function() {
+      if (chrome.runtime.lastError) {
+        if (showNotification) {
+          showToast('保存提示词失败: ' + chrome.runtime.lastError.message);
+        }
+      } else {
+        if (showNotification) {
+          showToast('提示词已保存');
+        }
+        
+        // 通知background脚本设置已更新
+        chrome.runtime.sendMessage({
+          action: "settingsUpdated",
+          settings: { customPrompts: customPrompts }
+        });
       }
     });
   }
@@ -329,22 +345,53 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     
-    // 保存到Chrome存储
-    chrome.storage.sync.set(
-      { 
-        apiKey: apiKey,
-        customPrompts: customPrompts 
-      },
-      function() {
-        showToast('设置已保存');
-        
-        // 确认设置已保存，通知background和其他页面
-        chrome.runtime.sendMessage({
-          action: "settingsUpdated",
-          settings: { apiKey: apiKey }
+    // 收集所有自定义提示词
+    const updatedPrompts = [];
+    
+    document.querySelectorAll('.custom-prompt').forEach(promptDiv => {
+      const id = promptDiv.dataset.id;
+      const enabled = promptDiv.querySelector('.prompt-enabled').checked;
+      const name = promptDiv.querySelector('.prompt-name').value.trim();
+      const content = promptDiv.querySelector('.prompt-content').value.trim();
+      
+      if (name && content) {
+        updatedPrompts.push({
+          id,
+          name,
+          content,
+          enabled
         });
       }
-    );
+    });
+    
+    // 更新自定义提示词数组
+    customPrompts = updatedPrompts;
+    
+    // 保存API密钥到sync storage
+    chrome.storage.sync.set({ 'apiKey': apiKey }, function() {
+      if (chrome.runtime.lastError) {
+        showToast('保存API密钥失败: ' + chrome.runtime.lastError.message);
+        return;
+      }
+      
+      // 保存自定义提示词到local storage
+      chrome.storage.local.set({ 'customPrompts': customPrompts }, function() {
+        if (chrome.runtime.lastError) {
+          showToast('保存提示词失败: ' + chrome.runtime.lastError.message);
+        } else {
+          showToast('设置已保存');
+          
+          // 通知background脚本设置已更新
+          chrome.runtime.sendMessage({
+            action: "settingsUpdated",
+            settings: { 
+              apiKey: apiKey,
+              customPrompts: customPrompts
+            }
+          });
+        }
+      });
+    });
   }
 
   // 保存API密钥
@@ -358,18 +405,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 保存到Chrome存储
-    chrome.storage.sync.set(
-      { apiKey: apiKey },
-      function() {
-        showToast('API密钥已保存');
-        
-        // 确认设置已保存，通知background和其他页面
-        chrome.runtime.sendMessage({
-          action: "settingsUpdated",
-          settings: { apiKey: apiKey }
-        });
-      }
-    );
+    chrome.storage.sync.set({ 'apiKey': apiKey }, function() {
+      showToast('API密钥已保存');
+      
+      // 确认设置已保存，通知background和其他页面
+      chrome.runtime.sendMessage({
+        action: "settingsUpdated",
+        settings: { apiKey: apiKey }
+      });
+    });
   }
 
   // 添加事件监听器
