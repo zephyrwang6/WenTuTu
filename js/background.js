@@ -13,6 +13,10 @@ let currentPrompt = {
   isCustom: false
 };
 
+// 存储最近的对话ID和消息历史，用于继续生成
+let lastConversationId = null;
+let lastMessages = [];
+
 // 处理上下文菜单点击
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "generateCoverFromSelection") {
@@ -332,6 +336,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({error: error.message || "Generate failed"});
     });
     return true;
+  } else if (request.action === "continueCoverGeneration") {
+    // 处理继续生成的请求
+    continueCoverGeneration(request.conversationId).then(data => {
+      sendResponse(data);
+    }).catch(error => {
+      sendResponse({error: error.message || "Continue generation failed"});
+    });
+    return true;
   } else if (request.action === "savePrompt") {
     // 保存当前选中的提示词
     currentPrompt = request.promptText;
@@ -351,11 +363,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// 生成封面的主要函数
-async function generateCover(text, customPrompt, isCustomPrompt = false, pageContent = null) {
+// 清理继续生成响应中的格式标记
+function cleanContinuationResponse(content) {
+  // 移除开头可能的解释文字，如"{以下是代码剩余部分："等
+  let cleaned = content.replace(/^\s*\{[^}]*\}\s*/g, '');
+  
+  // 移除开头的代码块标记 ```，但保留结尾的标记
+  cleaned = cleaned.replace(/^```(svg|html|xml)?/g, '');
+  // 不再移除结尾的代码块标记，保留它们用于最终拼接
+  // cleaned = cleaned.replace(/```$/g, '');
+  
+  // 移除SVG文件的xml声明和文档类型声明前面可能有的说明文字
+  cleaned = cleaned.replace(/^.*?(?=<svg|<\?xml|<!DOCTYPE)/s, '');
+  
+  return cleaned;
+}
+
+// 继续生成的主要函数
+async function continueCoverGeneration(conversationId) {
   try {
-    console.log("customPrompt = ", customPrompt);
-    console.log("isCustomPrompt = ", isCustomPrompt);
+    if (!conversationId) {
+      throw new Error("对话ID不存在，无法继续生成");
+    }
     
     // 获取 API 密钥
     const settings = await chrome.storage.sync.get(["apiKey"]);
@@ -366,30 +395,27 @@ async function generateCover(text, customPrompt, isCustomPrompt = false, pageCon
     
     const apiKey = settings.apiKey.trim();
 
-    // 通知开始生成
+    // 通知开始生成（不会创建新窗口，而是在现有窗口继续）
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       if (tabs && tabs.length > 0) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "startGeneration" });
+        chrome.tabs.sendMessage(tabs[0].id, { 
+          action: "appendContent",
+          content: "\n\n", // 添加空行分隔
+          conversationId: conversationId
+        });
       }
     });
 
-    // 准备消息内容
-    const messages = [];
+    // 准备继续生成的消息
+    const messages = [...lastMessages]; // 使用之前的消息历史
     
-    // 添加系统提示词
+    // 添加继续生成的请求，优化提示词
     messages.push({
-      role: "system",
-      content: customPrompt || "请为以下文章生成一个吸引人的封面图片描述。"
+      role: "user", 
+      content: "请直接继续输出上个回答中未完成的代码部分，我需要的是纯代码。不要添加任何解释性文字、注释、标记(如'{以下是剩余部分}')或代码块符号(如```或```)。请直接从代码断点处继续输出，确保能与上一部分代码无缝拼接，就像是同一份完整代码的一部分。输出应该以上次输出最后一个代码字符的下一个字符开始，保持代码的完整性和连续性。"
     });
-    
-    // 如果是自定义提示词且有页面内容，则一起发送
-    if (isCustomPrompt && pageContent) {
-      messages.push({ role: "user", content: `页面内容：${pageContent}\n\n用户选择的内容：${text}` });
-    } else {
-      messages.push({ role: "user", content: text });
-    }
 
-    console.log("正在发送请求到 DeepSeek API...");
+    console.log("正在发送继续生成请求到 DeepSeek API...");
     
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
@@ -430,7 +456,15 @@ async function generateCover(text, customPrompt, isCustomPrompt = false, pageCon
           const parsed = JSON.parse(cleanedLine);
 
           if (parsed.choices[0].delta.content) {
-            accumulatedResponse += parsed.choices[0].delta.content;
+            let content = parsed.choices[0].delta.content;
+            
+            // 清理内容中可能的格式标记
+            if (accumulatedResponse.length === 0) {
+              // 对第一个片段进行更严格的清理，移除可能的前缀
+              content = cleanContinuationResponse(content);
+            }
+            
+            accumulatedResponse += content;
 
             // 发送增量更新
             chrome.tabs.query(
@@ -439,7 +473,8 @@ async function generateCover(text, customPrompt, isCustomPrompt = false, pageCon
                 if (tabs[0]) {
                   chrome.tabs.sendMessage(tabs[0].id, {
                     action: "appendContent",
-                    content: parsed.choices[0].delta.content,
+                    content: content,
+                    conversationId: conversationId
                   });
                 }
               }
@@ -451,16 +486,192 @@ async function generateCover(text, customPrompt, isCustomPrompt = false, pageCon
       }
     }
 
-    // 发送完成消息
-    chrome.runtime.sendMessage({
-      action: "coverGenerated",
-      result: accumulatedResponse,
+    // 最后对累积的响应进行一次清理
+    accumulatedResponse = cleanContinuationResponse(accumulatedResponse);
+    
+    // 添加响应到消息历史
+    lastMessages.push({
+      role: "assistant",
+      content: accumulatedResponse
     });
+
+    // 发送完成消息
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      if (tabs && tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, { 
+          action: "completeGeneration",
+          conversationId: conversationId
+        });
+      }
+    });
+    
+    return { success: true };
   } catch (error) {
     console.error("Error:", error);
     chrome.runtime.sendMessage({
       action: "error",
       message: error.message,
     });
+    return { error: error.message };
+  }
+}
+
+// 生成封面的主要函数
+async function generateCover(text, customPrompt, isCustomPrompt = false, pageContent = null) {
+  try {
+    console.log("customPrompt = ", customPrompt);
+    console.log("isCustomPrompt = ", isCustomPrompt);
+    
+    // 获取 API 密钥
+    const settings = await chrome.storage.sync.get(["apiKey"]);
+    if (!settings.apiKey || settings.apiKey.trim() === '') {
+      console.error("API 密钥未配置");
+      return { error: "请先在设置中配置 API 密钥" };
+    }
+    
+    const apiKey = settings.apiKey.trim();
+
+    // 通知开始生成
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      if (tabs && tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "startGeneration" });
+      }
+    });
+
+    // 准备消息内容
+    const messages = [];
+    
+    // 添加系统提示词
+    messages.push({
+      role: "system",
+      content: customPrompt || "请为以下文章生成一个吸引人的封面图片描述。"
+    });
+    
+    // 如果是自定义提示词且有页面内容，则一起发送
+    if (isCustomPrompt && pageContent) {
+      messages.push({ role: "user", content: `页面内容：${pageContent}\n\n用户选择的内容：${text}` });
+    } else {
+      messages.push({ role: "user", content: text });
+    }
+    
+    // 保存消息用于继续生成
+    lastMessages = [...messages];
+
+    console.log("正在发送请求到 DeepSeek API...");
+    
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 2000,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("API请求失败");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulatedResponse = "";
+    let responseId = null;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split("\n");
+
+      for (const line of lines) {
+        if (line.trim() === "") continue;
+        if (line.trim() === "data: [DONE]") continue;
+
+        try {
+          const cleanedLine = line.replace(/^data: /, "");
+          const parsed = JSON.parse(cleanedLine);
+          
+          // 保存对话ID
+          if (parsed.id && !responseId) {
+            responseId = parsed.id;
+            lastConversationId = responseId;
+            
+            // 将对话ID传递给内容脚本
+            chrome.tabs.query(
+              { active: true, currentWindow: true },
+              function (tabs) {
+                if (tabs[0]) {
+                  chrome.tabs.sendMessage(tabs[0].id, {
+                    action: "appendContent",
+                    content: "",
+                    conversationId: responseId
+                  });
+                }
+              }
+            );
+          }
+
+          if (parsed.choices[0].delta.content) {
+            accumulatedResponse += parsed.choices[0].delta.content;
+
+            // 发送增量更新
+            chrome.tabs.query(
+              { active: true, currentWindow: true },
+              function (tabs) {
+                if (tabs[0]) {
+                  chrome.tabs.sendMessage(tabs[0].id, {
+                    action: "appendContent",
+                    content: parsed.choices[0].delta.content,
+                    conversationId: responseId
+                  });
+                }
+              }
+            );
+          }
+        } catch (e) {
+          console.error("Error parsing line:", e);
+        }
+      }
+    }
+    
+    // 添加响应到消息历史
+    lastMessages.push({
+      role: "assistant",
+      content: accumulatedResponse
+    });
+
+    // 发送完成消息
+    chrome.tabs.query(
+      { active: true, currentWindow: true },
+      function (tabs) {
+        if (tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, { 
+            action: "completeGeneration",
+            conversationId: responseId
+          });
+        }
+      }
+    );
+
+    chrome.runtime.sendMessage({
+      action: "coverGenerated",
+      result: accumulatedResponse,
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error:", error);
+    chrome.runtime.sendMessage({
+      action: "error",
+      message: error.message,
+    });
+    return { error: error.message };
   }
 }

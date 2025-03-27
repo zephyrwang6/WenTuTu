@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 ,(format nil "#~A" 标签))))))
                 
      ;;; Attention: 运行规则!
-    ;; 1. 必须生成SVG代码
+    ;; 1. 必须生成SVG代码,只输出SVG代码，请勿输出其他内容
     ;; 2. 接收用户输入之后，调用主函数 (小红书封面SVG 用户内容)
     ;; 3. 严格按照(SVG封面卡片)函数生成SVG内容
     ;; 4. 确保主标题简洁有力，不超过15个字
@@ -167,7 +167,7 @@ F. 输出规范：
 - 形状风格：简约圆角矩形，最小化边框，突出内容
 - 排版原则：重视信息层次，保持视觉平衡，给适当留白
 - 箭头样式：细线灰色虚线箭头，视觉轻量
-;; - 必须确保准确表达原文本中的逻辑关系
+;; - 必须确保准确表达原文本中的逻辑关系，输出SVG代码，请勿输出其他内容
 ;; - 尽量使用现代简约的视觉语言，避免过多的装饰元素
 ;; - 保持整体设计的一致性、美观性和专业性
 ;; - 确保文字的可读性和清晰度，适当使用字体大小和粗细变化
@@ -215,6 +215,9 @@ F. 输出规范：
         promptText: selectedPrompt.text,
         isCustom: selectedPrompt.isCustom
       });
+      
+      // 保存当前选择的提示词类型
+      chrome.storage.sync.set({ 'lastSelectedPromptType': promptTypeSelect.value });
     } catch (error) {
       console.error('保存当前提示词失败:', error);
     }
@@ -426,8 +429,9 @@ F. 输出规范：
     refreshAllContentScripts();
     
     // 加载自定义提示词选项
-    chrome.storage.sync.get(['customPrompts'], function(result) {
+    chrome.storage.sync.get(['customPrompts', 'lastSelectedPromptType'], function(result) {
       const customPrompts = result.customPrompts || [];
+      const lastSelectedPromptType = result.lastSelectedPromptType || 'default';
       
       // 清除已有的自定义提示词选项（如果重新初始化）
       const existingOptions = promptTypeSelect.querySelectorAll('option[data-custom="true"]');
@@ -443,6 +447,15 @@ F. 输出规范：
           promptTypeSelect.appendChild(option);
         }
       });
+      
+      // 设置上次选择的提示词类型
+      if (lastSelectedPromptType) {
+        // 检查选项是否存在
+        const optionExists = Array.from(promptTypeSelect.options).some(option => option.value === lastSelectedPromptType);
+        if (optionExists) {
+          promptTypeSelect.value = lastSelectedPromptType;
+        }
+      }
       
       // 初始化时保存当前选择的提示词到background
       getSelectedPrompt().then(selectedPrompt => {
