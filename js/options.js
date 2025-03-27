@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const resetPromptsButton = document.getElementById('resetPrompts');
   const saveButton = document.getElementById('save');
   const testApiKeyButton = document.getElementById('testApiKey');
+  const saveApiKeyButton = document.getElementById('saveApiKey');
   const apiTestSuccess = document.getElementById('apiTestSuccess');
   const apiTestError = document.getElementById('apiTestError');
   const toastElement = document.getElementById('toast');
@@ -17,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const defaultPrompts = [
     {
       id: 'default_prompt_1',
-      name: '文本逻辑-黑白配图',
+      name: '黑白逻辑图(3:4)',
       content: `## 用途
 将文本转换为精准的单一逻辑关系SVG图
 
@@ -35,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
 2. 智能选择最适合的关系类型
 3. 抽象并精简核心概念
 4. 设计简约的可视化方案
-5. 生成优美的SVG图
+5. 生成优美的SVG图,大小为600*800
 
 ## 关系类型
 - **递进关系**：表示概念或事件的渐进发展
@@ -72,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
     },
     {
       id: 'default_prompt_2',
-      name: '文本逻辑关系图2.0',
+      name: '渐变色配图(4:3)',
       content: `## 用途
 将文本转换为精准的单一逻辑关系SVG图
 
@@ -346,11 +347,37 @@ document.addEventListener('DOMContentLoaded', function() {
     );
   }
 
+  // 保存API密钥
+  function saveApiKey() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    
+    // 确保API密钥不为空
+    if (!apiKey) {
+      showToast('请输入有效的API密钥');
+      return;
+    }
+    
+    // 保存到Chrome存储
+    chrome.storage.sync.set(
+      { apiKey: apiKey },
+      function() {
+        showToast('API密钥已保存');
+        
+        // 确认设置已保存，通知background和其他页面
+        chrome.runtime.sendMessage({
+          action: "settingsUpdated",
+          settings: { apiKey: apiKey }
+        });
+      }
+    );
+  }
+
   // 添加事件监听器
   addPromptButton.addEventListener('click', addPrompt);
   resetPromptsButton.addEventListener('click', resetPrompts);
   saveButton.addEventListener('click', saveSettings);
   testApiKeyButton.addEventListener('click', testApiConnection);
+  saveApiKeyButton.addEventListener('click', saveApiKey);
   
   // 初始化
   loadSettings();

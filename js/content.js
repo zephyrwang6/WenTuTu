@@ -24,12 +24,32 @@ function injectCustomStyles() {
       display: flex;
       flex-direction: column;
     }
+    
+    /* HTML预览特定样式 */
+    .svg-preview.html-preview {
+      width: 480px;
+      max-width: 80vw;
+      padding: 0;
+      overflow: hidden;
+    }
+    
+    .svg-preview.html-preview .header {
+      padding: 10px 15px;
+      background: #f5f5f5;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      border-bottom: 1px solid #e5e5e5;
+    }
 
     .svg-preview .header {
       display: flex;
       justify-content: flex-end;
       align-items: center;
       margin-bottom: 10px;
+    }
+    
+    .svg-preview.html-preview .header {
+      margin-bottom: 0;
     }
 
     .svg-preview .header .actions {
@@ -42,6 +62,14 @@ function injectCustomStyles() {
       overflow: auto;
       max-height: calc(70vh - 60px);
       padding: 5px;
+    }
+    
+    .svg-preview .svg-container.html-container {
+      width: 100%;
+      padding: 0;
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      overflow: hidden;
     }
 
     .svg-preview .svg-container::-webkit-scrollbar {
@@ -66,6 +94,13 @@ function injectCustomStyles() {
     .svg-preview .svg-container svg {
       display: block;
       margin: 0 auto;
+    }
+    
+    .svg-preview .svg-container iframe {
+      width: 100%;
+      min-height: 300px;
+      border: none;
+      display: block;
     }
     
     /* 纯文本按钮样式 */
@@ -153,20 +188,35 @@ function scrollToBottom(element) {
 
 // 提取完整的SVG或HTML内容，支持多次对话拼接
 function extractCompleteCode(content) {
+  // 检查是否是HTML内容
+  const isHtml = content.includes('<!DOCTYPE html>') || 
+                (content.includes('<html') && content.includes('</html>')) ||
+                (content.match(/<body[^>]*>[\s\S]*?<\/body>/i) !== null);
+
   // 首先检查是否包含markdown代码块
-  const markdownRegex = /```svg\s*([\s\S]*?)\s*```/i;
-  const markdownMatch = content.match(markdownRegex);
+  const svgMarkdownRegex = /```svg\s*([\s\S]*?)\s*```/i;
+  const svgMarkdownMatch = content.match(svgMarkdownRegex);
   
-  if (markdownMatch && markdownMatch[1]) {
-    console.log('从Markdown代码块中提取SVG');
-    const svgCode = markdownMatch[1].trim();
-    
-    // 检查是否有被截断的标签
-    const fixedSvgCode = fixBrokenTags(svgCode);
-    return fixedSvgCode;
+  const htmlMarkdownRegex = /```html\s*([\s\S]*?)\s*```/i;
+  const htmlMarkdownMatch = content.match(htmlMarkdownRegex);
+  
+  if (htmlMarkdownMatch && htmlMarkdownMatch[1]) {
+    console.log('从Markdown代码块中提取HTML');
+    return { content: htmlMarkdownMatch[1].trim(), type: 'html' };
   }
   
-  // 检查内容是否包含说明文本
+  if (svgMarkdownMatch && svgMarkdownMatch[1]) {
+    console.log('从Markdown代码块中提取SVG');
+    return { content: svgMarkdownMatch[1].trim(), type: 'svg' };
+  }
+  
+  // 检查是否是HTML文档
+  if (isHtml) {
+    console.log('检测到HTML内容');
+    return { content, type: 'html' };
+  }
+  
+  // 检查内容是否包含SVG
   const contentLines = content.split('\n');
   let svgStartIndex = -1;
   let svgEndIndex = -1;
@@ -186,11 +236,7 @@ function extractCompleteCode(content) {
   if (svgStartIndex !== -1 && svgEndIndex !== -1) {
     console.log('从文本中提取完整SVG，行范围:', svgStartIndex, '至', svgEndIndex);
     const svgLines = contentLines.slice(svgStartIndex, svgEndIndex + 1);
-    const svgCode = svgLines.join('\n');
-    
-    // 检查是否有被截断的标签
-    const fixedSvgCode = fixBrokenTags(svgCode);
-    return fixedSvgCode;
+    return { content: svgLines.join('\n'), type: 'svg' };
   }
   
   // 尝试提取完整的SVG标签
@@ -199,276 +245,19 @@ function extractCompleteCode(content) {
   
   if (svgMatches && svgMatches.length > 0) {
     console.log('通过正则提取完整SVG标签');
-    // 如果有多个SVG标签，取最后一个，通常是最完整的
-    const svgCode = svgMatches[svgMatches.length - 1];
-    
-    // 检查是否有被截断的标签
-    const fixedSvgCode = fixBrokenTags(svgCode);
-    return fixedSvgCode;
+    return { content: svgMatches[0], type: 'svg' };
   }
   
-  // 尝试提取并合并可能被分割的SVG代码
-  if (content.includes('<svg') && content.includes('</svg>')) {
-    console.log('尝试组合分段的SVG代码');
-    const svgStartIndex = content.indexOf('<svg');
-    const svgEndIndex = content.lastIndexOf('</svg>') + 6;
-    
-    // 提取SVG代码
-    if (svgStartIndex !== -1 && svgEndIndex !== -1) {
-      const svgCode = content.substring(svgStartIndex, svgEndIndex);
-      
-      // 修复可能的问题
-      const fixedSvgCode = fixBrokenTags(svgCode);
-      return fixedSvgCode;
-    }
+  // 如果没有找到完整SVG标签，尝试提取不完整的内容
+  const svgOpenTag = content.match(/<svg[^>]*>/i);
+  if (svgOpenTag) {
+    console.log('只找到SVG开始标签，尝试提取可能不完整的SVG');
+    // 从SVG开始标签开始，提取后续所有内容
+    const svgContent = content.substring(content.indexOf(svgOpenTag[0]));
+    return { content: svgContent, type: 'svg' };
   }
   
-  // 如果未能提取到完整SVG，尝试拼接不完整的SVG代码
-  // 寻找SVG开始和结束标签
-  const svgStartMatch = /<svg[^>]*>/i.exec(content);
-  const svgEndMatch = /<\/svg>/i.exec(content);
-  
-  if (svgStartMatch && svgEndMatch) {
-    console.log('从不完整内容中拼接SVG');
-    // 找到完整的开始和结束标签，提取中间内容
-    const startIndex = svgStartMatch.index;
-    const endIndex = svgEndMatch.index + 6; // '</svg>'.length = 6
-    const svgCode = content.substring(startIndex, endIndex);
-    
-    // 修复可能的问题
-    const fixedSvgCode = fixBrokenTags(svgCode);
-    return fixedSvgCode;
-  } else if (svgStartMatch) {
-    console.log('只找到SVG开始标签，添加结束标签');
-    // 只有开始标签，尝试猜测SVG结构并闭合
-    const svgContent = content.substring(svgStartMatch.index);
-    // 添加结束标签
-    const svgCode = svgContent + "</svg>";
-    
-    // 修复可能的问题
-    const fixedSvgCode = fixBrokenTags(svgCode);
-    return fixedSvgCode;
-  }
-  
-  // 尝试修复和提取不完整的SVG/XML结构
-  if (content.includes('<svg')) {
-    console.log('尝试修复不完整的SVG结构');
-    // 提取从<svg开始的所有内容
-    const svgStartIndex = content.indexOf('<svg');
-    let extractedContent = content.substring(svgStartIndex);
-    
-    // 如果没有结束标签，添加一个
-    if (!extractedContent.includes('</svg>')) {
-      extractedContent += '</svg>';
-    }
-    
-    // 修复可能的问题
-    const fixedSvgCode = fixBrokenTags(extractedContent);
-    return fixedSvgCode;
-  }
-  
-  // 最后的尝试：如果内容中包含SVG相关标签但格式不完整
-  if (content.includes('<rect') || content.includes('<circle') || 
-      content.includes('<path') || content.includes('<text')) {
-    console.log('检测到SVG元素但没有完整标签，构建完整SVG');
-    // 构建一个基本的SVG容器
-    const svgCode = `<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
-    
-    // 修复可能的问题
-    const fixedSvgCode = fixBrokenTags(svgCode);
-    return fixedSvgCode;
-  }
-  
-  // 找不到任何SVG相关内容，返回原内容
-  console.log('无法提取SVG内容，返回原始内容');
-  return content;
-}
-
-// 修复被截断的标签
-function fixBrokenTags(svgCode) {
-  console.log('检查并修复SVG标签问题...');
-  
-  // 修复截断的路径问题（像用户示例中的那种情况）
-  let fixedCode = svgCode;
-  
-  // 修复被分成多行的 path 路径属性
-  const pathRegex = /<path\s+d\s*=\s*"([^"]*?)"\s+stroke/g;
-  let match;
-  
-  while ((match = pathRegex.exec(svgCode)) !== null) {
-    const pathD = match[1];
-    
-    // 检查路径是否被截断
-    if (!pathD.endsWith('Z') && !pathD.endsWith('z') && 
-        !pathD.match(/[MLHVCSQTAZmlhvcsqtaz]\s*[-\d.,\s]+$/)) {
-      console.log('检测到可能被截断的路径:', pathD);
-      
-      // 查找下一行是否包含路径的继续部分
-      const nextLineRegex = new RegExp(`stroke\\s*=\\s*"([^"]*?)"`, 'g');
-      const nextLineMatch = nextLineRegex.exec(svgCode.substring(match.index + match[0].length));
-      
-      if (nextLineMatch) {
-        // 创建完整的路径属性
-        const originalPath = `<path d="${pathD}" stroke`;
-        const newPath = `<path d="${pathD}" stroke="${nextLineMatch[1]}"`;
-        
-        fixedCode = fixedCode.replace(originalPath, newPath);
-        console.log('修复路径:', newPath);
-      }
-    }
-  }
-  
-  // 处理特定的路径分割问题
-  const brokenPathRegex = /<path d="([^"]*)"\s+(\w+)\s*(\r?\n)([^<>]*)"/g;
-  fixedCode = fixedCode.replace(brokenPathRegex, (match, d, attr, newline, value) => {
-    console.log(`修复分割的路径属性: ${attr}`);
-    return `<path d="${d}" ${attr}="${value}"`;
-  });
-  
-  // 专门处理用户示例中的特定问题模式
-  const specificIssuePattern = /<path d="([^"]*)"\s+stroke\s*\r?\n([^<>"]*)"/g;
-  fixedCode = fixedCode.replace(specificIssuePattern, (match, d, value) => {
-    console.log('修复特定路径问题模式');
-    return `<path d="${d}" stroke="${value}"`;
-  });
-  
-  // 修复带属性但截断的标签
-  const brokenAttrRegex = /<([a-z]+)[^>]+\n/g;
-  fixedCode = fixedCode.replace(brokenAttrRegex, (match, tagName) => {
-    console.log('修复带属性但截断的标签:', match);
-    if (match.endsWith(' ')) {
-      return match;
-    }
-    return match + ' ';
-  });
-  
-  // 修复被截断的 stroke 属性
-  if (fixedCode.includes('stroke') && !fixedCode.match(/stroke="[^"]*"/)) {
-    const strokeLineRegex = /stroke\r?\n([^=]*?)"/g;
-    fixedCode = fixedCode.replace(strokeLineRegex, (match, attr) => {
-      console.log('修复被截断的stroke属性');
-      return `stroke="${attr}"`;
-    });
-  }
-  
-  // 如果检测到用户示例中的特定模式
-  if (fixedCode.includes('stroke\n') || fixedCode.includes('stroke\r\n')) {
-    console.log('检测到换行后的stroke属性，尝试修复');
-    fixedCode = fixedCode.replace(/stroke\r?\n/g, 'stroke="');
-    // 尝试在这种情况下找到下一个引号位置
-    const quotePos = fixedCode.indexOf('"', fixedCode.indexOf('stroke="') + 'stroke="'.length);
-    if (quotePos !== -1) {
-      fixedCode = fixedCode.substring(0, quotePos + 1) + 
-                  fixedCode.substring(quotePos + 1).replace(/"\s+/, '" ');
-    }
-  }
-  
-  // 检查是否包含 "stroke" 后跟一些值但没有引号的情况
-  const brokenStrokeRegex = /stroke([^="][^<>]*?)(\s|>)/g;
-  fixedCode = fixedCode.replace(brokenStrokeRegex, (match, strokeValue, ending) => {
-    if (!strokeValue.startsWith('=')) {
-      console.log('修复未引用的stroke值:', match);
-      return `stroke="${strokeValue.trim()}"${ending}`;
-    }
-    return match;
-  });
-  
-  // 修复特定的问题模式
-  const specificPatterns = [
-    {
-      search: /<path d="([^"]*)" stroke/g,
-      check: (match) => !match.includes('stroke="'),
-      replace: (match, d) => `<path d="${d}" stroke="`
-    },
-    {
-      search: /"#([a-zA-Z0-9]+);/g,
-      replace: (match) => match.replace(';', '"')
-    },
-    {
-      search: /"#([a-zA-Z0-9]+)'/g,
-      replace: (match) => match.replace('\'', '"')
-    }
-  ];
-  
-  for (const pattern of specificPatterns) {
-    if (pattern.check) {
-      let match;
-      while ((match = pattern.search.exec(fixedCode)) !== null) {
-        if (pattern.check(match[0])) {
-          const beforeFix = fixedCode;
-          fixedCode = fixedCode.replace(match[0], pattern.replace(match[0], match[1]));
-          if (beforeFix !== fixedCode) {
-            console.log('应用特定模式修复成功');
-          }
-        }
-      }
-    } else {
-      fixedCode = fixedCode.replace(pattern.search, pattern.replace);
-    }
-  }
-  
-  // 修复用户特定的问题模式
-  if (fixedCode.includes('<path d="M 400 200 L 400 240" stroke')) {
-    console.log('检测到特定的问题模式，应用特定修复');
-    fixedCode = fixedCode.replace(
-      '<path d="M 400 200 L 400 240" stroke',
-      '<path d="M 400 200 L 400 240" stroke="'
-    );
-  }
-  
-  // 修复SVG中缺失的xmlns属性
-  if (fixedCode.includes('<svg') && !fixedCode.includes('xmlns="http://www.w3.org/2000/svg"')) {
-    fixedCode = fixedCode.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-  }
-  
-  // 修复错位的tag
-  const tagMismatchFixRegex = /<(\w+)[^>]*>([^<]*)<\/(?!\1)(\w+)>/g;
-  fixedCode = fixedCode.replace(tagMismatchFixRegex, (match, openTag, content, closeTag) => {
-    console.log(`修复标签不匹配: <${openTag}> 与 </${closeTag}>`);
-    return `<${openTag}>${content}</${openTag}>`;
-  });
-  
-  // 确保所有标签都正确闭合
-  const openTagsStack = [];
-  const tagRegex = /<\/?([a-z][a-z0-9]*)[^>]*>/gi;
-  let tagMatch;
-  
-  while ((tagMatch = tagRegex.exec(fixedCode)) !== null) {
-    const isClosingTag = tagMatch[0].startsWith('</');
-    const tagName = tagMatch[1].toLowerCase();
-    
-    if (!isClosingTag && !tagMatch[0].endsWith('/>')) {
-      openTagsStack.push({
-        name: tagName,
-        position: tagMatch.index + tagMatch[0].length
-      });
-    } else if (isClosingTag) {
-      if (openTagsStack.length > 0 && openTagsStack[openTagsStack.length - 1].name === tagName) {
-        openTagsStack.pop();
-      }
-    }
-  }
-  
-  // 添加缺失的闭合标签
-  if (openTagsStack.length > 0) {
-    console.log('添加缺失的闭合标签:', openTagsStack.map(t => t.name).join(', '));
-    let codeWithClosingTags = fixedCode;
-    
-    // 从栈顶到栈底添加闭合标签（先进后出）
-    for (let i = openTagsStack.length - 1; i >= 0; i--) {
-      const tag = openTagsStack[i];
-      codeWithClosingTags += `</${tag.name}>`;
-    }
-    
-    fixedCode = codeWithClosingTags;
-  }
-  
-  // 确保有效的SVG
-  if (!fixedCode.includes('</svg>')) {
-    fixedCode += '</svg>';
-  }
-  
-  return fixedCode;
+  return { content: '', type: 'unknown' };
 }
 
 // 查找未闭合的XML/HTML标签
@@ -584,74 +373,29 @@ function showSvgPreview(svgContent) {
     // 添加下载按钮事件
     const downloadBtn = svgPreviewDiv.querySelector('.download-btn');
     downloadBtn.onclick = () => {
-      const svg = svgPreviewDiv.querySelector('svg');
-      if (svg) {
-        downloadSVG(svg, 'cover.svg');
-      }
+      // 创建一个Blob对象并下载SVG内容
+      const blob = new Blob([svgContent], {type: 'image/svg+xml'});
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'cover.svg';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     };
   
     // 添加全屏按钮事件
     const fullscreenBtn = svgPreviewDiv.querySelector('.fullscreen-btn');
     fullscreenBtn.onclick = () => {
-      const svg = svgPreviewDiv.querySelector('svg');
-      if (svg) {
-        // 创建新的窗口
-        const newWindow = window.open('', '_blank');
-        
-        // 生成完整的HTML内容
-        const serializer = new XMLSerializer();
-        const svgString = serializer.serializeToString(svg);
-        
-        // 创建HTML文档，包含自适应SVG的CSS
-        const htmlContent = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>SVG全屏预览</title>
-            <style>
-              body {
-                margin: 0;
-                padding: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                background-color: #f5f5f5;
-                overflow: auto;
-              }
-              .svg-container {
-                max-width: 95vw;
-                max-height: 95vh;
-                margin: 20px;
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-                background: white;
-                padding: 20px;
-                border-radius: 8px;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-              }
-              svg {
-                max-width: 100%;
-                max-height: 100%;
-                height: auto;
-                width: auto;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="svg-container">
-              ${svgString}
-            </div>
-          </body>
-          </html>
-        `;
-        
-        // 写入HTML内容
-        newWindow.document.open();
-        newWindow.document.write(htmlContent);
-        newWindow.document.close();
-      }
+      // 创建新的窗口
+      const newWindow = window.open('', '_blank');
+      
+      // 直接写入原始SVG内容，不添加额外HTML/CSS
+      newWindow.document.open();
+      newWindow.document.write(svgContent);
+      newWindow.document.close();
     };
   
     // 添加关闭按钮事件
@@ -671,488 +415,17 @@ function showSvgPreview(svgContent) {
     // 添加到DOM树
     document.body.appendChild(svgPreviewDiv);
   
-    // 解析SVG内容
+    // 直接显示原始SVG内容，不尝试修复
     const svgContainer = svgPreviewDiv.querySelector('.svg-container');
-    const parser = new DOMParser();
-    console.log('开始解析SVG...');
-    const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
-    
-    // 检查解析错误
-    if (svgDoc.querySelector('parsererror')) {
-      console.error('SVG解析错误:', svgDoc.querySelector('parsererror').textContent);
-      console.log('尝试修复SVG内容...');
-      
-      // 尝试修复SVG内容
-      const fixedSvgContent = fixSvgContent(svgContent);
-      console.log('修复后SVG内容长度:', fixedSvgContent.length);
-      console.log('修复后SVG内容预览:', fixedSvgContent.substring(0, 100) + '...');
-      
-      const fixedSvgDoc = parser.parseFromString(fixedSvgContent, 'image/svg+xml');
-      
-      if (fixedSvgDoc.querySelector('parsererror')) {
-        console.error('修复失败，错误:', fixedSvgDoc.querySelector('parsererror').textContent);
-        svgContainer.innerHTML = '<div style="color: red;">SVG 解析错误，无法修复。可能是SVG代码不完整或包含错误。</div>';
-        return;
-      }
-      
-      console.log('SVG修复成功，开始渲染...');
-      const svgElement = fixedSvgDoc.documentElement;
-      console.log('SVG元素:', svgElement.tagName);
-      
-      svgElement.setAttribute('width', '100%');
-      svgElement.setAttribute('height', '100%');
-      svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-      
-      svgContainer.innerHTML = '';
-      svgContainer.appendChild(svgElement);
-      
-      // 监听容器大小变化
-      const resizeObserver = new ResizeObserver(() => {
-        // SVG已设置为自适应，这里只需确保其他元素正确定位即可
-        updateSvgViewport(svgElement, svgContainer);
-      });
-      
-      // 观察容器大小变化
-      resizeObserver.observe(svgContainer);
-      resizeObserver.observe(svgPreviewDiv);
-      
-      // 当预览窗口关闭时，取消观察
-      svgPreviewDiv.addEventListener('remove', () => {
-        resizeObserver.disconnect();
-      }, { once: true });
-      
-      // 初始化SVG视口
-      updateSvgViewport(svgElement, svgContainer);
-    } else {
-      console.log('SVG解析成功，开始渲染...');
-      const svgElement = svgDoc.documentElement;
-      console.log('SVG元素:', svgElement.tagName);
-      
-      svgElement.setAttribute('width', '100%');
-      svgElement.setAttribute('height', '100%');
-      svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-      
-      svgContainer.innerHTML = '';
-      svgContainer.appendChild(svgElement);
-      
-      // 监听容器大小变化
-      const resizeObserver = new ResizeObserver(() => {
-        // SVG已设置为自适应，这里只需确保其他元素正确定位即可
-        updateSvgViewport(svgElement, svgContainer);
-      });
-      
-      // 观察容器大小变化
-      resizeObserver.observe(svgContainer);
-      resizeObserver.observe(svgPreviewDiv);
-      
-      // 当预览窗口关闭时，取消观察
-      svgPreviewDiv.addEventListener('remove', () => {
-        resizeObserver.disconnect();
-      }, { once: true });
-      
-      // 初始化SVG视口
-      updateSvgViewport(svgElement, svgContainer);
-    }
+    svgContainer.innerHTML = svgContent;
+  
   } catch (error) {
     console.error('Error in showSvgPreview:', error);
     
     if (svgPreviewDiv) {
       const svgContainer = svgPreviewDiv.querySelector('.svg-container');
-      svgContainer.innerHTML = `<div style="color: red;">SVG 预览错误: ${error.message}</div>`;
+      svgContainer.innerHTML = '<div style="color: red;">显示SVG时发生错误。</div>';
     }
-  }
-}
-
-// 尝试修复SVG内容
-function fixSvgContent(svgContent) {
-  console.log('运行fixSvgContent进行额外修复...');
-  
-  // 应用现有修复
-  let fixedContent = svgContent;
-  
-  // 0. 特别处理SVG滤镜元素不匹配问题
-  console.log('检查并修复SVG滤镜元素标签不匹配问题...');
-  
-  // 修复feMerge和filter标签不匹配问题
-  const filterTagCheck = (content) => {
-    // 计数所有开始和结束标签
-    const filterOpenTags = (content.match(/<filter/g) || []).length;
-    const filterCloseTags = (content.match(/<\/filter>/g) || []).length;
-    const femergeOpenTags = (content.match(/<feMerge/g) || []).length;
-    const femergeCloseTags = (content.match(/<\/feMerge>/g) || []).length;
-    
-    console.log(`filter标签计数: 开始=${filterOpenTags}, 结束=${filterCloseTags}`);
-    console.log(`feMerge标签计数: 开始=${femergeOpenTags}, 结束=${femergeCloseTags}`);
-    
-    let fixedContent = content;
-    
-    // 如果feMerge和filter标签不匹配
-    if (filterOpenTags > filterCloseTags) {
-      console.log('发现filter标签未闭合，添加缺失的</filter>标签');
-      const filterRegex = /<filter[^>]*>[\s\S]*?(?:<\/filter>|$)/g;
-      let match;
-      while ((match = filterRegex.exec(content)) !== null) {
-        // 检查这个filter块是否有闭合标签
-        if (!match[0].includes('</filter>')) {
-          const openTag = match[0];
-          const fixedTag = openTag + '</filter>';
-          fixedContent = fixedContent.replace(openTag, fixedTag);
-        }
-      }
-    }
-    
-    if (femergeOpenTags > femergeCloseTags) {
-      console.log('发现feMerge标签未闭合，添加缺失的</feMerge>标签');
-      const femergeRegex = /<feMerge[^>]*>[\s\S]*?(?:<\/feMerge>|$)/g;
-      let match;
-      while ((match = femergeRegex.exec(content)) !== null) {
-        // 检查这个feMerge块是否有闭合标签
-        if (!match[0].includes('</feMerge>')) {
-          const openTag = match[0];
-          const fixedTag = openTag + '</feMerge>';
-          fixedContent = fixedContent.replace(openTag, fixedTag);
-        }
-      }
-    }
-    
-    // 检查filter标签中是否有未闭合的feMerge标签
-    const filterBlocks = content.match(/<filter[^>]*>[\s\S]*?<\/filter>/g) || [];
-    for (const block of filterBlocks) {
-      const feMergeOpenCount = (block.match(/<feMerge/g) || []).length;
-      const feMergeCloseCount = (block.match(/<\/feMerge>/g) || []).length;
-      
-      if (feMergeOpenCount > feMergeCloseCount) {
-        console.log('在filter块中发现未闭合的feMerge标签');
-        let fixedBlock = block;
-        for (let i = 0; i < feMergeOpenCount - feMergeCloseCount; i++) {
-          // 在filter闭合标签前添加feMerge闭合标签
-          fixedBlock = fixedBlock.replace('</filter>', '</feMerge></filter>');
-        }
-        fixedContent = fixedContent.replace(block, fixedBlock);
-      }
-    }
-    
-    return fixedContent;
-  };
-  
-  // 修复其他常见的SVG滤镜元素不匹配问题
-  const svgFilterElements = [
-    'feBlend', 'feColorMatrix', 'feComponentTransfer', 'feComposite',
-    'feConvolveMatrix', 'feDiffuseLighting', 'feDisplacementMap', 'feDropShadow',
-    'feFlood', 'feFuncA', 'feFuncB', 'feFuncG', 'feFuncR', 'feGaussianBlur',
-    'feImage', 'feMergeNode', 'feMorphology', 'feOffset', 'feSpecularLighting',
-    'feTile', 'feTurbulence'
-  ];
-  
-  // 检查并修复所有滤镜元素
-  for (const element of svgFilterElements) {
-    const openTags = (fixedContent.match(new RegExp(`<${element}[^>]*>`, 'g')) || []).length;
-    const closeTags = (fixedContent.match(new RegExp(`<\\/${element}>`, 'g')) || []).length;
-    
-    if (openTags > closeTags) {
-      console.log(`发现${element}标签未闭合，添加缺失的闭合标签`);
-      const elemRegex = new RegExp(`<${element}[^>]*>([\\s\\S]*?)(?:<\\/${element}>|$)`, 'g');
-      let match;
-      while ((match = elemRegex.exec(fixedContent)) !== null) {
-        // 检查这个元素块是否有闭合标签
-        if (!match[0].includes(`</${element}>`)) {
-          const openTag = match[0];
-          const fixedTag = openTag + `</${element}>`;
-          fixedContent = fixedContent.replace(openTag, fixedTag);
-        }
-      }
-    }
-  }
-  
-  // 特别处理feMerge和filter标签不匹配的问题 
-  if (fixedContent.includes('<filter') && fixedContent.includes('<feMerge')) {
-    fixedContent = filterTagCheck(fixedContent);
-    
-    // 另一种方案：修复因格式错误导致的filter和feMerge标签不匹配
-    if (fixedContent.includes('</feMerge></filter>') === false && 
-        fixedContent.includes('<feMerge') && 
-        fixedContent.includes('</filter>')) {
-      console.log('尝试修复filter和feMerge标签嵌套问题');
-      
-      // 查找最后一个feMerge开始标签和第一个filter结束标签之间是否缺少feMerge结束标签
-      const lastFeMergePos = fixedContent.lastIndexOf('<feMerge');
-      const firstFilterClosePos = fixedContent.indexOf('</filter>', lastFeMergePos);
-      
-      if (lastFeMergePos !== -1 && firstFilterClosePos !== -1) {
-        // 检查在这个范围内是否有feMerge的结束标签
-        const hasFeMergeClose = fixedContent.substring(lastFeMergePos, firstFilterClosePos).includes('</feMerge>');
-        
-        if (!hasFeMergeClose) {
-          // 在filter结束标签前添加feMerge结束标签
-          fixedContent = fixedContent.substring(0, firstFilterClosePos) + 
-                         '</feMerge>' + 
-                         fixedContent.substring(firstFilterClosePos);
-          console.log('添加了缺失的</feMerge>标签');
-        }
-      }
-    }
-  }
-  
-  // 1. 修复未闭合的标签
-  const unbalancedTags = findUnbalancedTags(fixedContent);
-  for (const tag of unbalancedTags) {
-    if (!tag.hasClosing && !tag.isSelfClosing) {
-      console.log(`添加缺失的闭合标签: </${tag.tagName}>`);
-      fixedContent += `</${tag.tagName}>`;
-    }
-  }
-  
-  // 2. 修复缺失的SVG结束标签
-  if (fixedContent.indexOf('<svg') !== -1 && fixedContent.indexOf('</svg>') === -1) {
-    console.log('添加缺失的</svg>标签');
-    fixedContent += '</svg>';
-  }
-  
-  // 3. 修复可能的截断问题
-  const truncatedTextFixRegex = /(<text[^>]*>)([^<]*)/g;
-  fixedContent = fixedContent.replace(truncatedTextFixRegex, (match, p1, p2) => {
-    if (!match.includes('</text>')) {
-      console.log('修复未闭合的text标签');
-      return `${p1}${p2}</text>`;
-    }
-    return match;
-  });
-  
-  // 4. 修复属性构造错误
-  const attrConstructErrorRegex = /(\w+)=([^"\s>][^>\s]*)/g;
-  fixedContent = fixedContent.replace(attrConstructErrorRegex, (match, attr, value) => {
-    if (value.startsWith('"') && !value.endsWith('"')) {
-      console.log(`修复未正确引用的属性: ${attr}`);
-      // 查找下一个引号
-      const nextQuote = fixedContent.indexOf('"', fixedContent.indexOf(match) + match.length);
-      if (nextQuote !== -1) {
-        const fullValue = fixedContent.substring(
-          fixedContent.indexOf(match) + attr.length + 1, 
-          nextQuote + 1
-        );
-        return `${attr}=${fullValue}`;
-      }
-    }
-    
-    if (!value.startsWith('"') && !value.endsWith('"')) {
-      console.log(`为属性添加引号: ${attr}="${value}"`);
-      return `${attr}="${value}"`;
-    }
-    
-    return match;
-  });
-  
-  // 5. 修复路径相关问题
-  const strokeFixRegex = /stroke\s+([^="][^\s>]*)/g;
-  fixedContent = fixedContent.replace(strokeFixRegex, (match, value) => {
-    console.log(`修复stroke属性: stroke="${value}"`);
-    return `stroke="${value}"`;
-  });
-  
-  const markerEndFixRegex = /marker-end\s+([^="][^\s>]*)/g;
-  fixedContent = fixedContent.replace(markerEndFixRegex, (match, value) => {
-    console.log(`修复marker-end属性: marker-end="${value}"`);
-    return `marker-end="${value}"`;
-  });
-  
-  // 6. 修复"stroke"后面直接是换行而不是等号的情况
-  if (fixedContent.includes('stroke\n') || fixedContent.includes('stroke\r\n')) {
-    console.log('检测到stroke换行问题，尝试修复');
-    
-    // 正则表达式匹配 stroke 后面接换行，然后是各种不包含 = 的内容，直到引号
-    const strokeLineBreakRegex = /stroke\r?\n([^=]*?)"/g;
-    fixedContent = fixedContent.replace(strokeLineBreakRegex, (match, content) => {
-      return `stroke="${content}"`;
-    });
-    
-    // 如果没有引号，可能需要进一步处理
-    if (fixedContent.includes('stroke\n') || fixedContent.includes('stroke\r\n')) {
-      const brokenStrokeRegex = /stroke\r?\n([^<>]*?)(\s|$)/g;
-      fixedContent = fixedContent.replace(brokenStrokeRegex, (match, content, ending) => {
-        return `stroke="${content.trim()}"${ending}`;
-      });
-    }
-  }
-  
-  // 7. 尝试特别处理错位属性的情况
-  if (fixedContent.includes('marker-end="url(#arrowhead)" />')) {
-    console.log('检测到特殊的marker-end模式，确保路径有正确的结束标签');
-    fixedContent = fixedContent.replace(
-      /stroke\r?\n([^"]*)"([^>]*?)marker-end="url\(#arrowhead\)" \/>/g,
-      'stroke="$1"$2marker-end="url(#arrowhead)" />'
-    );
-  }
-  
-  // 8. 强力清理：将所有 stroke 后面跟的非属性内容用引号包围
-  const forceStrokeFixRegex = /stroke([^=<>"]*)([^\s"<=][^\s<=>]*)/g;
-  fixedContent = fixedContent.replace(forceStrokeFixRegex, (match, spacing, value) => {
-    // 如果spacing不包含等号，则进行修复
-    if (!spacing.includes('=')) {
-      console.log('强制修复stroke属性值:', value);
-      return `stroke="${value}"`;
-    }
-    return match;
-  });
-  
-  // 9. 格式化所有路径元素，确保它们的语法正确
-  const pathElements = fixedContent.match(/<path[^>]*>/g) || [];
-  for (const pathElement of pathElements) {
-    // 如果路径元素中有明显的问题，尝试修复
-    if ((pathElement.includes('stroke') && !pathElement.includes('stroke=')) ||
-        (pathElement.includes('fill') && !pathElement.includes('fill=')) ||
-        (pathElement.includes('marker-end') && !pathElement.includes('marker-end='))) {
-      
-      console.log('修复问题路径元素:', pathElement);
-      
-      let fixedPath = pathElement;
-      
-      // 修复stroke属性
-      if (fixedPath.includes('stroke') && !fixedPath.includes('stroke=')) {
-        const strokeMatch = fixedPath.match(/stroke\s+([^<>\s"]*)/);
-        if (strokeMatch) {
-          fixedPath = fixedPath.replace(
-            strokeMatch[0], 
-            `stroke="${strokeMatch[1]}"`
-          );
-        }
-      }
-      
-      // 修复fill属性
-      if (fixedPath.includes('fill') && !fixedPath.includes('fill=')) {
-        const fillMatch = fixedPath.match(/fill\s+([^<>\s"]*)/);
-        if (fillMatch) {
-          fixedPath = fixedPath.replace(
-            fillMatch[0], 
-            `fill="${fillMatch[1]}"`
-          );
-        }
-      }
-      
-      // 修复marker-end属性
-      if (fixedPath.includes('marker-end') && !fixedPath.includes('marker-end=')) {
-        const markerMatch = fixedPath.match(/marker-end\s+([^<>\s"]*)/);
-        if (markerMatch) {
-          fixedPath = fixedPath.replace(
-            markerMatch[0], 
-            `marker-end="${markerMatch[1]}"`
-          );
-        }
-      }
-      
-      fixedContent = fixedContent.replace(pathElement, fixedPath);
-    }
-  }
-  
-  // 重要：处理特定错误：修复包含换行的stroke属性
-  if (fixedContent.includes('<path d="M 400 200 L 400 240" stroke')) {
-    console.log('检测到特定问题模式，应用专门修复');
-    
-    // 尝试找到完整的路径字符串
-    const brokenPathIndex = fixedContent.indexOf('<path d="M 400 200 L 400 240" stroke');
-    if (brokenPathIndex !== -1) {
-      // 找到该行后的内容
-      const afterPath = fixedContent.substring(brokenPathIndex);
-      // 将整个路径替换为修复后的版本
-      const fixedPath = afterPath
-        .replace('<path d="M 400 200 L 400 240" stroke', '<path d="M 400 200 L 400 240" stroke="')
-        .replace(/\n([^"<>]*)/, '"$1"');
-        
-      // 截取到下一个标签前的内容
-      const nextTagIndex = fixedPath.indexOf('<', 1);
-      const pathToFix = fixedPath.substring(0, nextTagIndex);
-      
-      // 替换原始内容
-      fixedContent = fixedContent.substring(0, brokenPathIndex) + 
-                      pathToFix + 
-                      fixedContent.substring(brokenPathIndex + pathToFix.length);
-    }
-  }
-  
-  // 最后的安全措施：对整个SVG进行语法检查
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(fixedContent, 'image/svg+xml');
-    
-    // 如果仍有解析错误，尝试重新生成简化的SVG
-    if (doc.querySelector('parsererror')) {
-      console.log('修复后仍有解析错误，尝试提取可用内容并重新生成SVG');
-      
-      // 再次尝试修复滤镜问题
-      console.log('最后尝试：彻底重构SVG滤镜元素...');
-      
-      // 简单修复：移除所有滤镜效果，保留基本图形
-      let strippedContent = fixedContent;
-      
-      // 移除所有filter标签及其内容
-      strippedContent = strippedContent.replace(/<filter[^>]*>[\s\S]*?<\/filter>/g, '');
-      
-      // 移除对filter的引用
-      strippedContent = strippedContent.replace(/filter="[^"]*"/g, '');
-      strippedContent = strippedContent.replace(/filter:url\([^)]*\);?/g, '');
-      
-      // 检查移除滤镜后是否解析正确
-      const strippedDoc = parser.parseFromString(strippedContent, 'image/svg+xml');
-      if (!strippedDoc.querySelector('parsererror')) {
-        console.log('移除滤镜后SVG可以正确解析');
-        return strippedContent;
-      }
-      
-      // 提取所有SVG元素
-      const elements = [];
-      const elementRegex = /<(rect|circle|path|text|polygon|polyline|line|ellipse)[^>]*>/g;
-      let elementMatch;
-      
-      while ((elementMatch = elementRegex.exec(fixedContent)) !== null) {
-        // 找到元素的结束位置
-        const tagName = elementMatch[1];
-        const startPos = elementMatch.index;
-        
-        // 如果是自闭合标签
-        if (elementMatch[0].endsWith('/>')) {
-          elements.push(elementMatch[0]);
-          continue;
-        }
-        
-        // 找到对应的闭合标签
-        const closeTagRegex = new RegExp(`</${tagName}>`, 'g');
-        closeTagRegex.lastIndex = startPos + elementMatch[0].length;
-        const closeMatch = closeTagRegex.exec(fixedContent);
-        
-        if (closeMatch) {
-          elements.push(fixedContent.substring(startPos, closeMatch.index + closeMatch[0].length));
-        } else {
-          // 如果没有找到闭合标签，只添加开始标签并自行闭合
-          elements.push(elementMatch[0].replace('>', '/>'));
-        }
-      }
-      
-      // 提取defs部分，但排除问题滤镜
-      let defsContent = '';
-      const defsMatch = fixedContent.match(/<defs>[\s\S]*?<\/defs>/);
-      if (defsMatch) {
-        // 从defs中移除所有filter标签及其内容
-        let cleanDefs = defsMatch[0].replace(/<filter[^>]*>[\s\S]*?<\/filter>/g, '');
-        // 如果defs里还有内容
-        if (cleanDefs.replace(/<\/?defs>/g, '').trim()) {
-          defsContent = cleanDefs;
-        }
-      }
-      
-      // 重新组装最小化的SVG
-      const minimalSvg = `<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-        ${defsContent}
-        ${elements.join('\n')}
-      </svg>`;
-      
-      console.log('创建了最小化SVG:', minimalSvg.substring(0, 100) + '...');
-      return minimalSvg;
-    }
-    
-    // 如果修复成功，返回修复后的内容
-    return fixedContent;
-  } catch (e) {
-    console.error('最终SVG语法检查失败:', e);
-    return fixedContent;
   }
 }
 
@@ -1187,6 +460,303 @@ function updateSvgViewport(svgElement, container) {
       svgElement.style.width = '100%';
       svgElement.style.height = 'auto';
     }
+  }
+}
+
+// 显示HTML预览
+function showHtmlPreview(htmlContent) {
+  try {
+    // 保存内容用于刷新
+    lastSvgContent = htmlContent; // 重用SVG的变量存储HTML内容
+    console.log('显示HTML预览，内容长度:', htmlContent.length);
+    console.log('HTML内容预览:', htmlContent.substring(0, 100) + '...');
+  
+    if (svgPreviewDiv) {
+      svgPreviewDiv.remove();
+    }
+  
+    svgPreviewDiv = document.createElement('div');
+    svgPreviewDiv.className = 'svg-preview html-preview';
+    svgPreviewDiv.innerHTML = `
+      <div class="header">
+        <div class="actions">
+          <button class="fullscreen-btn" title="全屏查看">全屏</button>
+          <button class="download-btn" title="下载HTML文件">下载</button>
+          <button class="close-btn" title="关闭预览">关闭</button>
+        </div>
+      </div>
+      <div class="svg-container html-container"></div>
+    `;
+  
+    // 添加下载按钮事件
+    const downloadBtn = svgPreviewDiv.querySelector('.download-btn');
+    downloadBtn.onclick = () => {
+      // 创建一个Blob对象并下载HTML内容
+      const blob = new Blob([htmlContent], {type: 'text/html'});
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'preview.html';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+  
+    // 添加全屏按钮事件
+    const fullscreenBtn = svgPreviewDiv.querySelector('.fullscreen-btn');
+    fullscreenBtn.onclick = () => {
+      // 创建新的窗口
+      const newWindow = window.open('', '_blank');
+      
+      // 直接写入原始HTML内容，不添加任何额外包装
+      newWindow.document.open();
+      newWindow.document.write(htmlContent);
+      newWindow.document.close();
+    };
+  
+    // 添加关闭按钮事件
+    svgPreviewDiv.querySelector('.close-btn').onclick = () => {
+      svgPreviewDiv.remove();
+      svgPreviewDiv = null;
+      // 显示预览按钮
+      const previewBtn = document.querySelector('.ai-cover-result .preview-btn');
+      if (previewBtn) {
+        previewBtn.style.display = 'inline-block';
+      }
+    };
+  
+    // 添加拖动功能
+    makeDraggable(svgPreviewDiv);
+  
+    // 添加到DOM树
+    document.body.appendChild(svgPreviewDiv);
+  
+    // 获取预览容器并添加HTML内容
+    const htmlContainer = svgPreviewDiv.querySelector('.html-container');
+    
+    // 创建iframe以安全地呈现HTML
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-presentation');
+    iframe.style.width = '100%';
+    iframe.style.height = '500px'; // 初始高度，后续会自动调整
+    iframe.style.border = 'none';
+    iframe.style.overflow = 'auto';
+    htmlContainer.appendChild(iframe);
+    
+    // 强制添加HTML头部元素以确保正确渲染
+    const enhancedHtmlContent = ensureHtmlStructure(htmlContent);
+    
+    // 向iframe写入HTML内容
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(enhancedHtmlContent);
+    iframeDoc.close();
+    
+    // 设置iframe的resize observer，动态调整高度
+    if (window.ResizeObserver) {
+      const resizeObserver = new ResizeObserver(() => {
+        adjustIframeHeight(iframe);
+      });
+      
+      // 观察iframe的内容变化
+      try {
+        resizeObserver.observe(iframeDoc.body);
+      } catch (e) {
+        console.log('无法直接观察iframe body，使用定时器调整高度');
+        // 如果无法直接观察，使用定时器定期检查高度
+        const heightCheckInterval = setInterval(() => {
+          if (svgPreviewDiv) {
+            adjustIframeHeight(iframe);
+          } else {
+            clearInterval(heightCheckInterval);
+          }
+        }, 500);
+      }
+      
+      // 当预览窗口关闭时，取消观察
+      svgPreviewDiv.addEventListener('remove', () => {
+        resizeObserver.disconnect();
+      }, { once: true });
+    }
+    
+    // 调整iframe高度以适应内容
+    iframe.onload = () => {
+      adjustIframeHeight(iframe);
+      
+      // 处理iframe内部链接点击，防止导航离开iframe
+      try {
+        const iframeLinks = iframe.contentDocument.querySelectorAll('a');
+        iframeLinks.forEach(link => {
+          link.addEventListener('click', (e) => {
+            // 如果是外部链接，在新窗口打开
+            if (link.getAttribute('href') && link.getAttribute('href').startsWith('http')) {
+              e.preventDefault();
+              window.open(link.href, '_blank');
+            }
+          });
+        });
+      } catch (e) {
+        console.log('无法处理iframe内部链接', e);
+      }
+    };
+  
+  } catch (error) {
+    console.error('Error in showHtmlPreview:', error);
+    
+    if (svgPreviewDiv) {
+      const svgContainer = svgPreviewDiv.querySelector('.svg-container');
+      svgContainer.innerHTML = '<div style="color: red;">显示HTML时发生错误。</div>';
+    }
+  }
+}
+
+// 调整iframe高度以适应内容
+function adjustIframeHeight(iframe) {
+  try {
+    // 获取iframe文档的实际高度
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    const html = doc.documentElement;
+    const body = doc.body;
+    
+    const height = Math.max(
+      body.scrollHeight,
+      body.offsetHeight,
+      html.clientHeight,
+      html.scrollHeight,
+      html.offsetHeight
+    );
+    
+    // 设置iframe的高度，确保能显示所有内容
+    if (height > 0) {
+      iframe.style.height = `${height}px`;
+      
+      // 如果内容较多，限制最大高度并添加滚动
+      const maxHeight = Math.min(700, window.innerHeight * 0.7);
+      if (height > maxHeight) {
+        iframe.style.height = `${maxHeight}px`;
+        iframe.style.overflowY = 'auto';
+      }
+    }
+  } catch (e) {
+    console.error('调整iframe高度失败', e);
+  }
+}
+
+// 确保HTML具有正确的结构
+function ensureHtmlStructure(html) {
+  // 检查是否有doctype和html标签
+  const hasDoctype = html.includes('<!DOCTYPE') || html.includes('<!doctype');
+  const hasHtmlTag = html.includes('<html') && html.includes('</html>');
+  const hasHead = html.includes('<head') && html.includes('</head>');
+  const hasBody = html.includes('<body') && html.includes('</body>');
+  
+  // 检查是否包含Tailwind CSS的引用
+  const hasTailwind = html.includes('tailwindcss') || html.includes('tailwind.css') || html.includes('tailwind.min.css');
+  
+  if (hasDoctype && hasHtmlTag && hasHead && hasBody) {
+    // HTML结构完整，检查是否需要添加Tailwind
+    if (!hasTailwind && html.includes('class=') && containsTailwindClasses(html)) {
+      // 在头部添加Tailwind CSS
+      return html.replace('</head>', 
+        '  <script src="https://cdn.tailwindcss.com"></script>\n</head>');
+    }
+    // 完整结构且不需要添加Tailwind，直接返回
+    return html;
+  }
+  
+  // 如果HTML不完整，需要构建完整结构
+  if (!hasHtmlTag) {
+    // 提取可能的内容部分
+    let content = html;
+    
+    // 检查是否需要添加Tailwind
+    const needsTailwind = !hasTailwind && (content.includes('class=') && containsTailwindClasses(content));
+    
+    // 构建完整的HTML
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>HTML预览</title>
+  ${needsTailwind ? '<script src="https://cdn.tailwindcss.com"></script>' : ''}
+  <style>
+    body {
+      margin: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      color: #333;
+    }
+    img { max-width: 100%; height: auto; }
+    pre { overflow: auto; background: #f5f5f5; padding: 8px; border-radius: 4px; }
+    code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    table, th, td { border: 1px solid #ddd; }
+    th, td { padding: 8px; text-align: left; }
+  </style>
+</head>
+<body>
+  ${content}
+</body>
+</html>`;
+  } else if (!hasDoctype) {
+    // 添加DOCTYPE
+    return `<!DOCTYPE html>\n${html}`;
+  }
+  
+  // 部分结构缺失时尝试修复
+  return html;
+}
+
+// 检查HTML内容是否包含Tailwind CSS类
+function containsTailwindClasses(html) {
+  // Tailwind常用类名的特征
+  const tailwindPatterns = [
+    /\btext-\w+\b/, // text-sm, text-lg, text-blue-500等
+    /\bbg-\w+\b/, // bg-white, bg-blue-500等
+    /\bp-\d+\b/, // p-4, p-8等
+    /\bm-\d+\b/, // m-2, m-8等
+    /\bflex\b/, // flex
+    /\bgrid\b/, // grid
+    /\bhidden\b/, // hidden
+    /\brounded-\w+\b/, // rounded-md, rounded-full等
+    /\bshadow-\w+\b/ // shadow-sm, shadow-xl等
+  ];
+  
+  // 如果至少匹配两个Tailwind模式，认为是使用了Tailwind
+  let matchCount = 0;
+  for (const pattern of tailwindPatterns) {
+    if (pattern.test(html)) {
+      matchCount++;
+      if (matchCount >= 2) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+// 显示预览，自动检测内容类型
+function showPreview(code) {
+  if (typeof code === 'object') {
+    // 新版格式，包含类型信息
+    if (code.type === 'html') {
+      showHtmlPreview(code.content);
+    } else if (code.type === 'svg') {
+      showSvgPreview(code.content);
+    } else {
+      console.log('未知内容类型:', code.type);
+    }
+  } else if (typeof code === 'string') {
+    // 兼容旧版调用，默认为SVG
+    showSvgPreview(code);
+  } else {
+    console.log('无法预览，无效内容');
   }
 }
 
@@ -1251,11 +821,90 @@ function makeDraggable(element) {
   }
 }
 
-// 检查响应是否需要显示继续按钮
-function shouldShowContinueButton(content) {
-  // 如果内容结尾不包含svg或html标签，则认为可能需要继续生成
-  const endWithSvgOrHtml = /<\/(svg|html)>\s*$/i.test(content.trim());
-  return !endWithSvgOrHtml;
+// 查找未闭合的XML/HTML标签
+function findUnbalancedTags(content) {
+  const tagRegex = /<\/?([a-z][a-z0-9]*)[^>]*>/gi;
+  const selfClosingRegex = /<([a-z][a-z0-9]*)[^>]*\/>/gi;
+  
+  // 找出所有自闭合标签
+  const selfClosingTags = [];
+  let selfClosingMatch;
+  while ((selfClosingMatch = selfClosingRegex.exec(content)) !== null) {
+    selfClosingTags.push({
+      tagName: selfClosingMatch[1].toLowerCase(),
+      position: selfClosingMatch.index,
+      isSelfClosing: true
+    });
+  }
+  
+  // 跟踪所有标签
+  const tagStack = [];
+  const unbalancedTags = [];
+  let match;
+  
+  // 重置正则表达式
+  tagRegex.lastIndex = 0;
+  
+  while ((match = tagRegex.exec(content)) !== null) {
+    const isClosing = match[0].indexOf('</') === 0;
+    const tagName = match[1].toLowerCase();
+    
+    // 检查是否是自闭合标签
+    let isSelfClosing = false;
+    for (const selfTag of selfClosingTags) {
+      if (selfTag.position === match.index) {
+        isSelfClosing = true;
+        break;
+      }
+    }
+    
+    if (isSelfClosing) {
+      // 忽略自闭合标签
+      continue;
+    }
+    
+    if (!isClosing) {
+      // 开始标签
+      tagStack.push({
+        tagName,
+        position: match.index,
+        hasClosing: false,
+        isSelfClosing: false
+      });
+    } else {
+      // 闭合标签
+      let foundMatchingTag = false;
+      
+      // 查找匹配的开始标签
+      for (let i = tagStack.length - 1; i >= 0; i--) {
+        if (tagStack[i].tagName === tagName && !tagStack[i].hasClosing) {
+          tagStack[i].hasClosing = true;
+          foundMatchingTag = true;
+          break;
+        }
+      }
+      
+      if (!foundMatchingTag) {
+        // 没有找到匹配的开始标签，这是一个未平衡的闭合标签
+        unbalancedTags.push({
+          tagName,
+          position: match.index,
+          isClosing: true,
+          hasOpening: false,
+          isSelfClosing: false
+        });
+      }
+    }
+  }
+  
+  // 将所有未闭合的开始标签添加到结果中
+  for (const tag of tagStack) {
+    if (!tag.hasClosing) {
+      unbalancedTags.push(tag);
+    }
+  }
+  
+  return unbalancedTags;
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -1302,8 +951,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const previewBtn = resultDiv.querySelector('.preview-btn');
     previewBtn.onclick = () => {
       const completeCode = extractCompleteCode(fullContent);
-      if (completeCode) {
-        showSvgPreview(completeCode);
+      if (completeCode.content) {
+        showPreview(completeCode);
       }
     };
     
@@ -1346,9 +995,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // 在生成过程中不显示预览按钮，只存储SVG内容
     const completeCode = extractCompleteCode(fullContent);
-    if (completeCode) {
-      lastSvgContent = completeCode;
-      console.log('Found complete code:', lastSvgContent); // 添加调试日志
+    if (completeCode.content) {
+      lastSvgContent = completeCode.content;
+      console.log(`找到完整代码 (${completeCode.type}):`, lastSvgContent.substring(0, 100)); // 添加类型信息
     }
     
     // 保存对话ID
@@ -1383,9 +1032,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     
     const completeCode = extractCompleteCode(fullContent);
-    if (completeCode) {
-      lastSvgContent = completeCode;
-      showSvgPreview(completeCode);
+    if (completeCode.content) {
+      lastSvgContent = completeCode.content;
+      showPreview(completeCode);
     }
   }
 
@@ -1540,3 +1189,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
   }
 });
+
+// 检查响应是否需要显示继续按钮
+function shouldShowContinueButton(content) {
+  // 如果内容结尾不包含svg或html标签，则认为可能需要继续生成
+  const endWithSvgOrHtml = /<\/(svg|html)>\s*$/i.test(content.trim());
+  return !endWithSvgOrHtml;
+}

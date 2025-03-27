@@ -13,9 +13,22 @@
       border-radius: 4px;
       cursor: pointer;
       margin-left: 10px;
-      width: 80px; /* 添加宽度样式 */
+      width: 120px; /* 添加宽度样式 */
     }
     .test-btn:hover {
+      background-color: #45a049;
+    }
+    .save-btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-left: 10px;
+      width: 80px;
+    }
+    .save-btn:hover {
       background-color: #45a049;
     }
     .help-text {
@@ -59,10 +72,11 @@
         <label for="apiKey">API密钥:</label>
         <div class="api-input-group">
           <input type="password" id="apiKey" placeholder="请输入您的API密钥">
+          <button id="saveApiKey" class="save-btn">保存</button>
           <button id="testApiKey" class="test-btn">测试连接</button>
         </div>
         <p class="api-key-hint">
-          获取测试密钥，<a href="https://v3oxu28gnc.feishu.cn/wiki/S2uWwmt5siVUp7kUycMc7f3JnC6?from=from_copylink" target="_blank">查看产品文档</a>
+          获取测试密钥和更多提示词，<a href="https://v3oxu28gnc.feishu.cn/wiki/S2uWwmt5siVUp7kUycMc7f3JnC6?from=from_copylink" target="_blank">查看产品帮助文档</a>
         </p>
         <div id="apiTestSuccess" class="success-message">连接成功！API密钥有效。</div>
         <div id="apiTestError" class="error-message">连接失败，请检查您的API密钥。</div>
