@@ -20,6 +20,16 @@ let lastMessages = [];
 // 处理上下文菜单点击
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "generateCoverFromSelection") {
+    // 先从存储中加载当前提示词，确保使用最新设置
+    try {
+      const result = await chrome.storage.local.get(['currentPrompt']);
+      if (result.currentPrompt) {
+        currentPrompt = result.currentPrompt;
+      }
+    } catch (error) {
+      console.error('加载当前提示词失败:', error);
+    }
+    
     // 使用当前选定的提示词，如果没有则获取默认提示词
     if (!currentPrompt.text) {
       const defaultPrompt = await getSelectedPrompt();
@@ -346,9 +356,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   } else if (request.action === "savePrompt") {
     // 保存当前选中的提示词
-    currentPrompt = request.promptText;
-    currentPromptIsCustom = request.isCustom;
-    return false;
+    currentPrompt = {
+      text: request.promptText,
+      isCustom: request.isCustom
+    };
+    
+    // 持久化存储当前提示词
+    chrome.storage.local.set({ 'currentPrompt': currentPrompt });
+    
+    if (sendResponse) {
+      sendResponse({success: true});
+    }
+    return true;
   } else if (request.action === "refreshContentScripts") {
     // 触发刷新所有标签页的内容脚本
     refreshContentScripts();
